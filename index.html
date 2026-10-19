@@ -124,6 +124,8 @@ input:focus{outline:none;border-color:var(--blu);}
 const SUPABASE_URL = 'https://tdflwenlylhctxssatax.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRkZmx3ZW5seWxoY3R4c3NhdGF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzMzgyNzYsImV4cCI6MjA5MTkxNDI3Nn0.l35qEL7LOvyYuI1McQlVqj4vbyTqmlevcmqWbTGYi2Q';
 const HUB_URL = 'https://albertospde.github.io/pde-hub/';
+// Per ora l'app è visibile solo a questi utenti (come la card nel Hub: data-solo-per)
+const UTENTI_AMMESSI = ['alberto.simola@pde.it'];
 
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const $ = id => document.getElementById(id);
@@ -132,9 +134,11 @@ const $ = id => document.getElementById(id);
 async function avvia(){
   const { data: { session } } = await sb.auth.getSession();
   if (!session) { $('login').classList.remove('hidden'); return; }
-  // Accesso riservato agli amministratori PDE (stesso controllo delle policy RLS sui dati)
-  const { data: admin } = await sb.rpc('_is_admin_pde');
-  if (admin !== true) {
+  // Accesso riservato agli utenti in UTENTI_AMMESSI che sono anche amministratori PDE
+  // (il secondo è lo stesso controllo delle policy RLS sui dati)
+  const ammesso = UTENTI_AMMESSI.includes((session.user.email || '').toLowerCase());
+  const { data: admin } = ammesso ? await sb.rpc('_is_admin_pde') : { data: false };
+  if (!ammesso || admin !== true) {
     document.body.innerHTML = `<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;text-align:center;padding:20px;">
       <div><div style="font-size:48px;margin-bottom:16px;">🔒</div><h2 style="margin-bottom:8px;">Accesso non autorizzato</h2>
       <p class="muted" style="margin-bottom:24px;">Non hai i permessi per accedere a questa applicazione.</p>
