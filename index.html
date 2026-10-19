@@ -74,6 +74,29 @@ input:focus{outline:none;border-color:var(--blu);}
 .btn-sm{padding:5px 10px;font-size:12px;}
 .err{color:var(--ko);font-weight:600;font-size:13px;min-height:18px;}
 
+/* ── Navigazione e sezioni ── */
+nav{display:flex;gap:4px;margin-left:12px;}
+.nav-btn{background:none;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;color:var(--muted);font-weight:500;}
+.nav-btn:hover{color:var(--text);background:var(--card-2);}
+.nav-btn.active{color:#fff;background:var(--blu);}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px 20px;margin-bottom:16px;}
+.card h2{font-size:17px;margin-bottom:6px;}
+.card .sub{color:var(--muted);font-size:13px;margin-bottom:14px;}
+.griglia{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:4px 14px;}
+input[type=text],input[type=number]{background:var(--input);border:1px solid var(--border);border-radius:7px;padding:8px 10px;width:100%;}
+.check{display:flex;align-items:center;gap:8px;font-size:13px;margin:4px 0 6px;}
+.azioni{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;}
+.esito{border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:13px;font-weight:600;border:1px solid;}
+.esito.ok{background:rgba(63,179,107,.14);border-color:#3fb36b;color:#3fb36b;}
+.esito.ko{background:rgba(239,91,91,.14);border-color:var(--ko);color:var(--ko);}
+.tbl-wrap{overflow-x:auto;max-height:360px;overflow-y:auto;}
+table{width:100%;border-collapse:collapse;}
+th{text-align:left;font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);padding:8px;border-bottom:1px solid var(--border);white-space:nowrap;}
+td{padding:8px;border-bottom:1px solid var(--border);vertical-align:middle;font-size:13px;}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;}
+td.ko{color:var(--ko);}
+.nota{color:var(--muted);font-size:12px;}
+
 /* ── Login ── */
 .login{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:100;padding:16px;}
 .login-box{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:32px;width:400px;max-width:100%;box-shadow:var(--shadow);}
@@ -101,6 +124,10 @@ input:focus{outline:none;border-color:var(--blu);}
 
 <header>
   <div class="logo-box"><div class="pde-logo" style="font-size:16px" role="img" aria-label="PDE Analisi"><div class="pl-text"><div class="pl-name"><b>PDE</b><span>ANALISI</span></div><div class="pl-tag"><i class="c0">RACCOGLI.</i><em>I</em><i class="c1">ANALIZZA.</i><em>I</em><i class="c2">DECIDI.</i></div></div><div class="pl-wing"></div></div></div>
+  <nav>
+    <button class="nav-btn active" data-view="analisi">Analisi</button>
+    <button class="nav-btn" data-view="sftp">SFTP Messaggerie</button>
+  </nav>
   <div class="hdr-right">
     <div class="theme-switch" role="group" aria-label="Tema">
       <button class="theme-opt" data-set="dark" onclick="setTheme('dark')">Scuro</button>
@@ -111,12 +138,48 @@ input:focus{outline:none;border-color:var(--blu);}
   </div>
 </header>
 
-<main id="main">
+<main>
   <!-- Schermata vuota: qui arriveranno le analisi sui dati Messaggerie -->
-  <div class="empty">
-    <div class="big">📊</div>
-    <p>Le analisi arriveranno qui.</p>
-  </div>
+  <section id="view-analisi">
+    <div class="empty">
+      <div class="big">📊</div>
+      <p>Le analisi arriveranno qui.</p>
+    </div>
+  </section>
+
+  <!-- Accesso SFTP Messaggerie: le stesse credenziali di FileZilla -->
+  <section id="view-sftp" class="hidden">
+    <div class="card">
+      <h2>🔐 Accesso SFTP Messaggerie</h2>
+      <p class="sub">Gli stessi dati che usi in FileZilla. La password viene salvata cifrata nel Vault di Supabase e non viene più mostrata: lasciala vuota per non cambiarla.</p>
+      <div class="griglia">
+        <div class="field"><label for="s-host">Host</label><input type="text" id="s-host" autocomplete="off"></div>
+        <div class="field"><label for="s-porta">Porta</label><input type="number" id="s-porta" min="1" max="65535"></div>
+        <div class="field"><label for="s-utente">Nome utente</label><input type="text" id="s-utente" autocomplete="off"></div>
+        <div class="field"><label for="s-password">Password</label><input type="password" id="s-password" autocomplete="new-password"></div>
+        <div class="field"><label for="s-cartella">Cartella sul server</label><input type="text" id="s-cartella"></div>
+        <div class="field"><label for="s-giorni">Considera file degli ultimi (giorni)</label><input type="number" id="s-giorni" min="1"></div>
+      </div>
+      <label class="check"><input type="checkbox" id="s-auto"> Download automatico ogni mattina dalle 5:30 (se il file non c'è ancora riprova ogni 15 minuti fino alle 6:30)</label>
+      <div class="nota" id="s-impronta"></div>
+      <div class="azioni">
+        <button class="btn btn-primary" id="s-salva">Salva</button>
+        <button class="btn btn-sec" id="s-prova">Prova connessione</button>
+        <button class="btn btn-sec" id="s-scarica">Scarica ora</button>
+      </div>
+    </div>
+    <div id="s-esito"></div>
+    <div class="card hidden" id="s-remoto"></div>
+    <div class="card">
+      <h2>⬇ File scaricati</h2>
+      <p class="sub" id="s-ultima-auto"></p>
+      <div id="s-file"></div>
+    </div>
+    <div class="card">
+      <h2>🕑 Registro</h2>
+      <div id="s-registro"></div>
+    </div>
+  </section>
 </main>
 
 <script>
@@ -147,6 +210,127 @@ async function avvia(){
   }
   $('login').classList.add('hidden');
   $('user-chip').textContent = session.user.email;
+  mostraVista(location.hash === '#sftp' ? 'sftp' : 'analisi');
+}
+
+/* ═════════ NAVIGAZIONE ═════════ */
+function mostraVista(v){
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.view === v));
+  $('view-analisi').classList.toggle('hidden', v !== 'analisi');
+  $('view-sftp').classList.toggle('hidden', v !== 'sftp');
+  history.replaceState(null, '', v === 'sftp' ? '#sftp' : location.pathname);
+  if (v === 'sftp') caricaSftp();
+}
+document.querySelectorAll('.nav-btn').forEach(b => b.onclick = () => mostraVista(b.dataset.view));
+
+/* ═════════ SFTP MESSAGGERIE ═════════
+   Impostazioni in public.sftp_config (password nel Vault tramite l'RPC sftp_config_salva).
+   La edge function sftp-messaggerie si collega, elenca e scarica i file nel bucket privato
+   "sftp-messaggerie": ogni mattina dalle 5:30 (pg_cron) oppure con "Scarica ora". */
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmtDataOra = d => d ? new Date(d).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+const fmtDim = n => n == null ? '—' : n < 1048576 ? `${(n / 1024).toFixed(1)} KB` : `${(n / 1048576).toFixed(1)} MB`;
+let sftpCaricato = false;
+let sftpFile = [];
+
+function esitoSftp(ok, testo){
+  $('s-esito').innerHTML = testo ? `<div class="esito ${ok ? 'ok' : 'ko'}">${ok ? '✓' : '✕'} ${esc(testo)}</div>` : '';
+}
+
+async function chiamaSftp(azione){
+  const { data, error } = await sb.functions.invoke('sftp-messaggerie', { body: { azione } });
+  if (error) {
+    const body = await error.context?.json?.().catch(() => null);
+    throw new Error(body?.error || error.message);
+  }
+  return data;
+}
+
+async function caricaSftp(){
+  const [cfg, file, reg] = await Promise.all([
+    sb.from('sftp_config').select('*').eq('id', 1).maybeSingle(),
+    sb.from('sftp_file').select('*').order('scaricato_il', { ascending: false }).limit(50),
+    sb.from('sftp_esecuzioni').select('*').order('quando', { ascending: false }).limit(20),
+  ]);
+  if (cfg.error || !cfg.data) { esitoSftp(false, cfg.error?.message || 'Impostazioni SFTP non leggibili.'); return; }
+  const c = cfg.data;
+  if (!sftpCaricato) {
+    $('s-host').value = c.host; $('s-porta').value = c.porta; $('s-utente').value = c.utente;
+    $('s-cartella').value = c.cartella_remota; $('s-giorni').value = c.giorni_indietro; $('s-auto').checked = c.automatico;
+    sftpCaricato = true;
+  }
+  $('s-password').placeholder = c.password_secret_id ? '•••••••• (salvata)' : 'non ancora inserita';
+  $('s-impronta').textContent = c.impronta_server ? `Impronta server: ${c.impronta_server}` : '';
+
+  sftpFile = file.data || [];
+  $('s-file').innerHTML = sftpFile.length ? `<div class="tbl-wrap"><table>
+    <tr><th>File</th><th class="num">Dimensione</th><th>Sul server dal</th><th>Scaricato il</th><th>Origine</th><th></th></tr>
+    ${sftpFile.map((f, i) => `<tr><td>${esc(f.nome_remoto)}</td><td class="num">${fmtDim(f.dimensione)}</td><td>${fmtDataOra(f.modificato_remoto)}</td>
+      <td>${fmtDataOra(f.scaricato_il)}</td><td>${esc(f.origine)}</td><td><button class="btn btn-sec btn-sm" data-file="${i}">↓ Scarica</button></td></tr>`).join('')}
+  </table></div>` : '<p class="nota">Nessun file scaricato finora.</p>';
+  $('s-file').querySelectorAll('[data-file]').forEach(b => b.onclick = () => apriFileSftp(sftpFile[Number(b.dataset.file)]));
+
+  const esecuzioni = reg.data || [];
+  const auto = esecuzioni.find(e => e.origine === 'automatico');
+  $('s-ultima-auto').textContent = `Ultimo download automatico: ${auto ? `${fmtDataOra(auto.quando)} · ${auto.ok ? auto.messaggio : 'errore: ' + auto.messaggio}` : 'non ancora eseguito'}`;
+  $('s-registro').innerHTML = esecuzioni.length ? `<div class="tbl-wrap"><table>
+    <tr><th>Quando</th><th>Tipo</th><th>Esito</th></tr>
+    ${esecuzioni.map(e => `<tr><td>${fmtDataOra(e.quando)}</td><td>${esc(e.origine)}</td><td class="${e.ok ? '' : 'ko'}">${e.ok ? '' : '✕ '}${esc(e.messaggio)}</td></tr>`).join('')}
+  </table></div>` : '<p class="nota">Nessuna esecuzione registrata.</p>';
+}
+
+async function conBottone(id, testo, fn){
+  const b = $(id), prima = b.textContent;
+  document.querySelectorAll('#view-sftp .azioni .btn').forEach(x => x.disabled = true);
+  b.textContent = testo;
+  try { await fn(); } finally {
+    b.textContent = prima;
+    document.querySelectorAll('#view-sftp .azioni .btn').forEach(x => x.disabled = false);
+  }
+}
+
+$('s-salva').onclick = () => conBottone('s-salva', 'Salvataggio…', async () => {
+  esitoSftp(true, '');
+  const { error } = await sb.rpc('sftp_config_salva', {
+    p_host: $('s-host').value, p_porta: Number($('s-porta').value) || 22, p_utente: $('s-utente').value,
+    p_password: $('s-password').value || null, p_cartella_remota: $('s-cartella').value,
+    p_giorni_indietro: Number($('s-giorni').value) || 7, p_automatico: $('s-auto').checked,
+  });
+  if (error) { esitoSftp(false, error.message); return; }
+  $('s-password').value = '';
+  esitoSftp(true, 'Impostazioni salvate.');
+  await caricaSftp();
+});
+
+$('s-prova').onclick = () => conBottone('s-prova', 'Connessione…', async () => {
+  esitoSftp(true, ''); $('s-remoto').classList.add('hidden');
+  try {
+    const r = await chiamaSftp('prova');
+    esitoSftp(true, `Connessione riuscita: ${r.totale} file in ${$('s-cartella').value}.`);
+    $('s-remoto').innerHTML = `<h2>📂 File sul server (${r.totale})</h2><div class="tbl-wrap"><table>
+      <tr><th>Nome</th><th class="num">Dimensione</th><th>Modificato</th></tr>
+      ${r.file.map(f => `<tr><td>${esc(f.nome)}</td><td class="num">${fmtDim(f.dimensione)}</td><td>${fmtDataOra(f.modificato)}</td></tr>`).join('')}
+    </table></div>`;
+    $('s-remoto').classList.remove('hidden');
+  } catch (e) { esitoSftp(false, e.message); }
+  await caricaSftp();
+});
+
+$('s-scarica').onclick = () => conBottone('s-scarica', 'Download in corso…', async () => {
+  esitoSftp(true, '');
+  try {
+    const r = await chiamaSftp('scarica');
+    esitoSftp(true, r.scaricati.length
+      ? `Scaricati ${r.scaricati.length} file: ${r.scaricati.map(s => s.nome).join(', ')}${r.rimandati ? ` (altri ${r.rimandati} al prossimo giro)` : ''}`
+      : 'Nessun file nuovo da scaricare.');
+  } catch (e) { esitoSftp(false, e.message); }
+  await caricaSftp();
+});
+
+async function apriFileSftp(f){
+  const { data, error } = await sb.storage.from('sftp-messaggerie').createSignedUrl(f.percorso_storage, 300, { download: f.nome_remoto });
+  if (error) { esitoSftp(false, `Download di ${f.nome_remoto}: ${error.message}`); return; }
+  location.href = data.signedUrl;
 }
 $('login-btn').onclick = async () => {
   const email = $('login-email').value.trim(), password = $('login-pw').value;
