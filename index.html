@@ -250,8 +250,8 @@ function esitoSftp(ok, testo){
   $('s-esito').innerHTML = testo ? `<div class="esito ${ok ? 'ok' : 'ko'}">${ok ? '✓' : '✕'} ${esc(testo)}</div>` : '';
 }
 
-async function chiamaSftp(azione){
-  const { data, error } = await sb.functions.invoke('sftp-messaggerie', { body: { azione } });
+async function chiamaSftp(azione, extra = {}){
+  const { data, error } = await sb.functions.invoke('sftp-messaggerie', { body: { azione, ...extra } });
   if (error) {
     const stato = error.context?.status;
     const body = await error.context?.clone?.().json().catch(() => null);
@@ -371,7 +371,7 @@ function disegnaRemoto(){
     <p class="sub">Scegli cosa scaricare: <b>Automatico</b> segue il filtro sul nome e i giorni indietro, <b>Includi</b> e <b>Escludi</b> valgono sempre per quel file.
       Ora si scaricano ${nSi} file. Includere un file eliminato lo fa riscaricare.</p>
     <div class="tbl-wrap" style="max-height:480px;"><table>
-    <tr><th>Nome</th><th class="num">Dimensione</th><th>Modificato</th><th>Si scarica?</th><th>Scelta</th><th>In PDE Analisi</th></tr>
+    <tr><th>Nome</th><th class="num">Dimensione</th><th>Modificato</th><th>Si scarica?</th><th>Scelta</th><th>In PDE Analisi</th><th></th></tr>
     ${sftpRemoto.map((f, i) => `<tr style="${f.filtro ? '' : 'opacity:.5;'}">
       <td>${esc(f.nome)}</td><td class="num">${fmtDim(f.dimensione)}</td><td>${fmtDataOra(f.modificato)}</td>
       <td>${f.filtro ? '✓ sì' : '— no'}</td>
@@ -380,9 +380,45 @@ function disegnaRemoto(){
         <option value="si"${f.scelta === true ? ' selected' : ''}>Includi</option>
         <option value="no"${f.scelta === false ? ' selected' : ''}>Escludi</option>
       </select></td>
-      <td>${statoTxt[f.stato] || '—'}</td></tr>`).join('')}
+      <td>${statoTxt[f.stato] || '—'}</td>
+      <td><button class="btn btn-sec btn-sm" data-scarica-uno="${i}" title="Scarica subito questo file in PDE Analisi">⬇ ${f.stato === 'scaricato' ? 'Riscarica' : 'Scarica'}</button></td></tr>`).join('')}
   </table></div>`;
   $('s-remoto').querySelectorAll('[data-scelta]').forEach(s => s.onchange = () => cambiaScelta(sftpRemoto[Number(s.dataset.scelta)], s.value));
+  $('s-remoto').querySelectorAll('[data-scarica-uno]').forEach(b => b.onclick = () => scaricaUno(sftpRemoto[Number(b.dataset.scaricaUno)]));
+}
+
+// Tasto "Scarica" sulla riga: prende subito quel file, anche se il filtro lo escluderebbe.
+// Un'interruzione (file troppo pesante) si riprova fino a 2 volte.
+async function scaricaUno(f){
+  const tasti = [...document.querySelectorAll('[data-scarica-uno], #view-sftp .azioni .btn')];
+  if (tasti.some(t => t.disabled)) return;
+  tasti.forEach(t => t.disabled = true);
+  esitoSftp(true, '');
+  Object.assign(prog, { file: [{ nome: f.nome, dimensione: f.dimensione }], stato: {}, corrente: f.nome, inizio: Date.now() });
+  clearInterval(prog.timer);
+  prog.timer = setInterval(() => disegnaProgresso('⬇ Download in corso'), 1000);
+  disegnaProgresso('⬇ Download in corso');
+  let errore = null;
+  for (let tentativo = 0; tentativo < 3; tentativo++) {
+    try {
+      await chiamaSftp('scarica', { nome: f.nome });
+      prog.stato[f.nome] = 'ok';
+      errore = null;
+      break;
+    } catch (e) {
+      errore = e;
+      if (!e.interrotto) break;
+    }
+  }
+  clearInterval(prog.timer);
+  prog.corrente = null;
+  if (errore) prog.stato[f.nome] = 'errore';
+  disegnaProgresso(errore ? '✕ Download non riuscito' : '✓ Download completato');
+  if (errore) esitoSftp(false, `${f.nome}: ${errore.message}`);
+  else { esitoSftp(true, `Scaricato ${f.nome} in ${fmtTempo(Date.now() - prog.inizio)}.`); f.stato = 'scaricato'; }
+  tasti.forEach(t => t.disabled = false);
+  disegnaRemoto();
+  await caricaSftp();
 }
 
 async function cambiaScelta(f, valore){
