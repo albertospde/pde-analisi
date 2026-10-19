@@ -86,6 +86,7 @@ nav{display:flex;gap:4px;margin-left:12px;}
 .card .sub{color:var(--muted);font-size:13px;margin-bottom:14px;}
 .griglia{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:4px 14px;}
 input[type=text],input[type=number]{background:var(--input);border:1px solid var(--border);border-radius:7px;padding:8px 10px;width:100%;}
+select{background:var(--input);border:1px solid var(--border);border-radius:7px;padding:5px 8px;font:inherit;color:inherit;}
 .check{display:flex;align-items:center;gap:8px;font-size:13px;margin:4px 0 6px;}
 .azioni{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;}
 .esito{border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:13px;font-weight:600;border:1px solid;}
@@ -163,11 +164,11 @@ td.ko{color:var(--ko);}
         <div class="field"><label for="s-giorni">Considera file degli ultimi (giorni)</label><input type="number" id="s-giorni" min="1"></div>
         <div class="field"><label for="s-filtro">Scarica solo i file che iniziano con</label><input type="text" id="s-filtro" placeholder="es. PPSV (più prefissi separati da virgola; vuoto = tutti)"></div>
       </div>
-      <label class="check"><input type="checkbox" id="s-auto"> Download automatico ogni mattina dalle 5:30 (se il file non c'è ancora riprova ogni 15 minuti fino alle 6:30)</label>
+      <label class="check"><input type="checkbox" id="s-auto"> Download automatico ogni mattina dalle 5:30 alle 7:30 (controlla ogni 10 minuti e scarica i file nuovi uno alla volta)</label>
       <div class="nota" id="s-impronta"></div>
       <div class="azioni">
         <button class="btn btn-primary" id="s-salva">Salva</button>
-        <button class="btn btn-sec" id="s-prova">Prova connessione</button>
+        <button class="btn btn-sec" id="s-prova">Prova connessione e scegli i file</button>
         <button class="btn btn-sec" id="s-scarica">Scarica ora</button>
       </div>
     </div>
@@ -336,18 +337,54 @@ $('s-prova').onclick = () => conBottone('s-prova', 'Connessione…', async () =>
   try {
     const r = await chiamaSftp('prova');
     esitoSftp(true, `Connessione riuscita: ${r.totale} file in ${$('s-cartella').value}.`);
-    const nFiltro = r.file.filter(f => f.filtro).length;
-    $('s-remoto').innerHTML = `<h2>📂 File sul server (${r.totale})</h2>
-      <p class="sub">In evidenza i ${nFiltro} file che passano il filtro: sono gli unici che verranno scaricati.</p>
-      <div class="tbl-wrap"><table>
-      <tr><th>Nome</th><th class="num">Dimensione</th><th>Modificato</th><th>Filtro</th></tr>
-      ${r.file.map(f => `<tr style="${f.filtro ? '' : 'opacity:.45;'}"><td>${esc(f.nome)}</td><td class="num">${fmtDim(f.dimensione)}</td><td>${fmtDataOra(f.modificato)}</td>
-        <td>${f.filtro ? '✓ si scarica' : 'escluso'}</td></tr>`).join('')}
-    </table></div>`;
+    sftpRemoto = r.file;
+    disegnaRemoto();
     $('s-remoto').classList.remove('hidden');
   } catch (e) { esitoSftp(false, e.message); }
   await caricaSftp();
 });
+
+/* ── Elenco file sul server: scelta file per file ──
+   Automatico = decide il filtro sul nome (e i "giorni indietro"); Includi / Escludi = scelta
+   manuale in public.sftp_scelte, che vince sempre. Includere un file eliminato lo riscarica. */
+let sftpRemoto = [];
+
+function autoSi(f){
+  const prefissi = $('s-filtro').value.split(',').map(p => p.trim().toUpperCase()).filter(Boolean);
+  const recente = new Date(f.modificato).getTime() >= Date.now() - (Number($('s-giorni').value) || 7) * 86400000;
+  return recente && (!prefissi.length || prefissi.some(p => f.nome.toUpperCase().startsWith(p)));
+}
+
+function disegnaRemoto(){
+  const nSi = sftpRemoto.filter(f => f.filtro).length;
+  const statoTxt = { scaricato: '✓ scaricato', eliminato: '🗑 eliminato' };
+  $('s-remoto').innerHTML = `<h2>📂 File sul server (${sftpRemoto.length})</h2>
+    <p class="sub">Scegli cosa scaricare: <b>Automatico</b> segue il filtro sul nome e i giorni indietro, <b>Includi</b> e <b>Escludi</b> valgono sempre per quel file.
+      Ora si scaricano ${nSi} file. Includere un file eliminato lo fa riscaricare.</p>
+    <div class="tbl-wrap" style="max-height:480px;"><table>
+    <tr><th>Nome</th><th class="num">Dimensione</th><th>Modificato</th><th>Si scarica?</th><th>Scelta</th><th>In PDE Analisi</th></tr>
+    ${sftpRemoto.map((f, i) => `<tr style="${f.filtro ? '' : 'opacity:.5;'}">
+      <td>${esc(f.nome)}</td><td class="num">${fmtDim(f.dimensione)}</td><td>${fmtDataOra(f.modificato)}</td>
+      <td>${f.filtro ? '✓ sì' : '— no'}</td>
+      <td><select data-scelta="${i}" aria-label="Scelta per ${esc(f.nome)}">
+        <option value="auto"${f.scelta === null ? ' selected' : ''}>Automatico (${autoSi(f) ? 'sì' : 'no'})</option>
+        <option value="si"${f.scelta === true ? ' selected' : ''}>Includi</option>
+        <option value="no"${f.scelta === false ? ' selected' : ''}>Escludi</option>
+      </select></td>
+      <td>${statoTxt[f.stato] || '—'}</td></tr>`).join('')}
+  </table></div>`;
+  $('s-remoto').querySelectorAll('[data-scelta]').forEach(s => s.onchange = () => cambiaScelta(sftpRemoto[Number(s.dataset.scelta)], s.value));
+}
+
+async function cambiaScelta(f, valore){
+  const incluso = valore === 'si' ? true : valore === 'no' ? false : null;
+  const { error } = await sb.rpc('sftp_scelta_imposta', { p_nome: f.nome, p_incluso: incluso });
+  if (error) { esitoSftp(false, `Scelta per ${f.nome}: ${error.message}`); disegnaRemoto(); return; }
+  f.scelta = incluso;
+  f.filtro = incluso === null ? autoSi(f) : incluso;
+  disegnaRemoto();
+  esitoSftp(true, `${f.nome}: ${incluso === true ? 'incluso' : incluso === false ? 'escluso' : 'torna automatico'}. Premi "Scarica ora" per scaricare subito i file inclusi.`);
+}
 
 // La funzione scarica un file per chiamata: si richiama finché ne restano.
 // Un'interruzione (file troppo pesante) si riprova: dopo 2 la funzione salta quel file da sola.
@@ -390,6 +427,12 @@ async function eliminaFileSftp(files){
   if (error) { esitoSftp(false, `Eliminazione non riuscita: ${error.message}`); return; }
   const { error: e2 } = await sb.rpc('sftp_file_segna_eliminati', { p_ids: files.map(f => f.id) });
   if (e2) { esitoSftp(false, `Eliminazione non riuscita: ${e2.message}`); return; }
+  // Un "Includi" manuale farebbe riscaricare il file appena eliminato: si torna ad automatico
+  const nomi = [...new Set(files.map(f => f.nome_remoto))];
+  const { data: inclusi } = await sb.from('sftp_scelte').select('nome_remoto').eq('incluso', true).in('nome_remoto', nomi);
+  for (const s of inclusi || []) await sb.rpc('sftp_scelta_imposta', { p_nome: s.nome_remoto, p_incluso: null });
+  sftpRemoto.forEach(r => { if (nomi.includes(r.nome)) { r.stato = 'eliminato'; if (r.scelta === true) { r.scelta = null; r.filtro = autoSi(r); } } });
+  if (sftpRemoto.length) disegnaRemoto();
   esitoSftp(true, files.length === 1 ? `Eliminato ${files[0].nome_remoto}.` : `Eliminati ${files.length} file.`);
   await caricaSftp();
 }
