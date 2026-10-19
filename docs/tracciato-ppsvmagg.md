@@ -49,7 +49,8 @@ Affidabilità: ✅ verificato con dati esterni o formule su tutte le righe · �
 | 223-230 | Data competenza | 20261031 | 🟡 | fine mese: data fattura? |
 | 231-233 | Causale | YLF | 🟡 | YLF fornito, LR reso, ... |
 | 234-242 | Riferimento cliente | | ❓ | quasi sempre vuoto |
-| 258-262 | Codice | 3A94 | ❓ | |
+| 258 | Codice | 3 | ❓ | una cifra |
+| 259-261 | Codice editore Messaggerie | A94 | ✅ | = `codice_editore` di Giro Manager (0000000277 → 277) su 5.838/5.838 righe |
 | 266-267 | Movimento | F1 | ✅ | F = fornito, R = reso (coincide con i documenti di reso) |
 | 269-275 | File | PPSV286 | ✅ | |
 | 276-288 | EAN | 9788880636809 | ✅ | |

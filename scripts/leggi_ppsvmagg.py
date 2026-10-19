@@ -44,7 +44,8 @@ CAMPI = [
     ("data_competenza",    223, 230, "d8"),  # fine mese (fattura?)
     ("causale",            231, 233, "t"),   # YLF, LR, FE, YRX, ...
     ("riferimento_cliente", 234, 242, "t"),
-    ("codice_258_262",     258, 262, "t"),
+    ("codice_258",         258, 258, "t"),
+    ("codice_editore",     259, 261, "t"),   # codice editore Messaggerie: = Giro Manager su 5.838/5.838 righe
     ("movimento",          266, 267, "t"),   # F1/F0 fornito, R1 reso
     ("file",               269, 275, "t"),   # PPSV + numero file
     ("ean",                276, 288, "t"),
