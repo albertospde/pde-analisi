@@ -245,6 +245,9 @@ const fmtDataOra = d => d ? new Date(d).toLocaleString('it-IT', { day: '2-digit'
 const fmtDim = n => n == null ? '—' : n < 1048576 ? `${(n / 1024).toFixed(1)} KB` : `${(n / 1048576).toFixed(1)} MB`;
 let sftpCaricato = false;
 let sftpFile = [];
+let importazioni = new Map();
+const fmtN = n => n == null ? '—' : Number(n).toLocaleString('it-IT');
+const fmtEuro = n => n == null ? '—' : Number(n).toLocaleString('it-IT', { style: 'currency', currency: 'EUR' });
 
 function esitoSftp(ok, testo){
   $('s-esito').innerHTML = testo ? `<div class="esito ${ok ? 'ok' : 'ko'}">${ok ? '✓' : '✕'} ${esc(testo)}</div>` : '';
@@ -267,11 +270,13 @@ async function chiamaSftp(azione, extra = {}){
 }
 
 async function caricaSftp(){
-  const [cfg, file, reg] = await Promise.all([
+  const [cfg, file, reg, imp] = await Promise.all([
     sb.from('sftp_config').select('*').eq('id', 1).maybeSingle(),
     sb.from('sftp_file').select('*').is('cancellato_il', null).order('scaricato_il', { ascending: false }).limit(200),
     sb.from('sftp_esecuzioni').select('*').order('quando', { ascending: false }).limit(20),
+    sb.from('msg_importazioni').select('*'),
   ]);
+  importazioni = new Map((imp.data || []).map(i => [i.file, i]));
   if (cfg.error || !cfg.data) { esitoSftp(false, cfg.error?.message || 'Impostazioni SFTP non leggibili.'); return; }
   const c = cfg.data;
   if (!sftpCaricato) {
@@ -285,16 +290,27 @@ async function caricaSftp(){
 
   sftpFile = file.data || [];
   $('s-file').innerHTML = sftpFile.length ? `
-    <div class="azioni" style="margin:0 0 10px;"><button class="btn btn-ko btn-sm" id="s-elimina-sel" disabled>🗑 Elimina selezionati</button></div>
+    <div class="azioni" style="margin:0 0 10px;">
+      <button class="btn btn-primary btn-sm" id="s-importa-tutti" title="Carica nel database tutti i PPSVMAGG non ancora importati">📥 Importa nel database i nuovi</button>
+      <button class="btn btn-ko btn-sm" id="s-elimina-sel" disabled>🗑 Elimina selezionati</button></div>
     <div class="tbl-wrap"><table>
-    <tr><th><input type="checkbox" id="s-sel-tutti" aria-label="Seleziona tutti"></th><th>File</th><th class="num">Dimensione</th><th>Sul server dal</th><th>Scaricato il</th><th>Origine</th><th></th></tr>
-    ${sftpFile.map((f, i) => `<tr><td><input type="checkbox" class="s-sel" data-i="${i}" aria-label="Seleziona ${esc(f.nome_remoto)}"></td>
+    <tr><th><input type="checkbox" id="s-sel-tutti" aria-label="Seleziona tutti"></th><th>File</th><th class="num">Dimensione</th><th>Sul server dal</th><th>Scaricato il</th><th>Nel database</th><th></th></tr>
+    ${sftpFile.map((f, i) => {
+      const n = numeroPpsv(f.nome_remoto), imp = n !== null ? importazioni.get(n) : null;
+      const statoDb = n === null ? '<span class="nota">non importabile</span>'
+        : !imp ? '—'
+        : imp.stato === 'completata' ? `✓ ${fmtN(imp.righe_caricate)} righe` : '⚠ incompleta';
+      return `<tr><td><input type="checkbox" class="s-sel" data-i="${i}" aria-label="Seleziona ${esc(f.nome_remoto)}"></td>
       <td>${esc(f.nome_remoto)}</td><td class="num">${fmtDim(f.dimensione)}</td><td>${fmtDataOra(f.modificato_remoto)}</td>
-      <td>${fmtDataOra(f.scaricato_il)}</td><td>${esc(f.origine)}</td>
-      <td style="white-space:nowrap;"><button class="btn btn-sec btn-sm" data-file="${i}">↓ Scarica</button>
-        <button class="btn btn-ko btn-sm" data-elimina="${i}" title="Elimina">🗑</button></td></tr>`).join('')}
+      <td>${fmtDataOra(f.scaricato_il)}</td><td>${statoDb}</td>
+      <td style="white-space:nowrap;">${n !== null ? `<button class="btn btn-sec btn-sm" data-importa="${i}" title="Carica i movimenti nel database">📥 ${imp ? 'Reimporta' : 'Importa'}</button> ` : ''}<button class="btn btn-sec btn-sm" data-file="${i}">↓ Scarica</button>
+        <button class="btn btn-ko btn-sm" data-elimina="${i}" title="Elimina">🗑</button></td></tr>`;
+    }).join('')}
   </table></div>` : '<p class="nota">Nessun file scaricato.</p>';
   $('s-file').querySelectorAll('[data-file]').forEach(b => b.onclick = () => apriFileSftp(sftpFile[Number(b.dataset.file)]));
+  $('s-file').querySelectorAll('[data-importa]').forEach(b => b.onclick = () => importaFile([sftpFile[Number(b.dataset.importa)]]));
+  if (sftpFile.length) $('s-importa-tutti').onclick = () =>
+    importaFile(sftpFile.filter(f => { const n = numeroPpsv(f.nome_remoto); return n !== null && importazioni.get(n)?.stato !== 'completata'; }).reverse());
   $('s-file').querySelectorAll('[data-elimina]').forEach(b => b.onclick = () => eliminaFileSftp([sftpFile[Number(b.dataset.elimina)]]));
   const selezionati = () => [...$('s-file').querySelectorAll('.s-sel:checked')].map(c => sftpFile[Number(c.dataset.i)]);
   const aggiornaSel = () => {
@@ -519,7 +535,7 @@ async function eliminaFileSftp(files){
   const domanda = files.length === 1
     ? `Eliminare "${files[0].nome_remoto}"?`
     : `Eliminare ${files.length} file?`;
-  if (!confirm(`${domanda}\n\nIl file viene cancellato da PDE Analisi (non dal server di Messaggerie) e non verrà riscaricato.`)) return;
+  if (!confirm(`${domanda}\n\nIl file viene cancellato da PDE Analisi (non dal server di Messaggerie) e non verrà riscaricato. I dati già importati nel database restano.`)) return;
   const percorsi = [...new Set(files.map(f => f.percorso_storage))];
   const { error } = await sb.storage.from('sftp-messaggerie').remove(percorsi);
   if (error) { esitoSftp(false, `Eliminazione non riuscita: ${error.message}`); return; }
@@ -533,6 +549,119 @@ async function eliminaFileSftp(files){
   if (sftpRemoto.length) disegnaRemoto();
   esitoSftp(true, files.length === 1 ? `Eliminato ${files[0].nome_remoto}.` : `Eliminati ${files.length} file.`);
   await caricaSftp();
+}
+
+/* ═════════ IMPORTAZIONE PPSVMAGG NEL DATABASE ═════════
+   Tracciato ricostruito (docs/tracciato-ppsvmagg.md): righe a lunghezza fissa da 813 caratteri,
+   MA00 testata / MAMA dettaglio / MA99 coda. Il file si legge qui nel browser (la edge function
+   ha solo 2 s di CPU), si sommano le righe per giorno × titolo × cliente × fornito/reso e si caricano
+   a blocchi con le RPC msg_import_*. Reimportare lo stesso file sostituisce i dati precedenti. */
+const PPSV_LUNGHEZZA = 813;
+const BLOCCO_IMPORT = 3000;
+const numeroPpsv = nome => { const m = /^PPSVMAGG\.(\d+)$/i.exec(nome || ''); return m ? Number(m[1]) : null; };
+const campo = (r, a, b) => r.slice(a - 1, b).trim();
+const intero = (r, a, b) => {
+  const s = campo(r, a, b);
+  if (!/^\d+$/.test(s)) throw new Error(`atteso un numero in posizione ${a}-${b}, trovato "${s}"`);
+  return Number(s);
+};
+const data8 = s => `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`;
+
+function leggiPpsvmagg(testo){
+  const righe = testo.split(/\r?\n/).filter(r => r.length);
+  let dataFile = null, dichiarate = null, lette = 0;
+  const mov = new Map(), titoli = new Map(), clienti = new Map();
+  const tot = { F: { copie: 0, netto: 0 }, R: { copie: 0, netto: 0 } };   // netto in centesimi
+  righe.forEach((r, i) => {
+    if (r.length !== PPSV_LUNGHEZZA) throw new Error(`riga ${i + 1}: lunga ${r.length} caratteri invece di ${PPSV_LUNGHEZZA}`);
+    const tipo = r.slice(0, 4);
+    try {
+      if (tipo === 'MA00') { dataFile = data8(campo(r, 13, 20)); dichiarate = intero(r, 28, 35); return; }
+      if (tipo === 'MA99') { if (intero(r, 28, 35) !== dichiarate) throw new Error('la coda non coincide con la testata'); return; }
+      if (tipo !== 'MAMA') throw new Error(`tipo record sconosciuto "${tipo}"`);
+      lette++;
+      const data = data8(campo(r, 19, 26));
+      const ean = campo(r, 276, 288);
+      const cliente = campo(r, 39, 46);
+      const m = campo(r, 266, 267).charAt(0) === 'R' ? 'R' : 'F';
+      const copie = intero(r, 47, 51);
+      const prezzo = intero(r, 55, 62);          // centesimi
+      const netto = intero(r, 501, 515);         // centesimi
+      const k = `${data}|${ean}|${cliente}|${m}`;
+      const x = mov.get(k) || { data, ean, codice_cliente: cliente, movimento: m, copie: 0, lordo: 0, netto: 0 };
+      x.copie += copie; x.lordo += copie * prezzo; x.netto += netto;
+      mov.set(k, x);
+      tot[m].copie += copie; tot[m].netto += netto;
+      titoli.set(ean, { ean, titolo: campo(r, 311, 370), codice_editore: campo(r, 259, 261).replace(/^0+/, ''),
+        sigla_editore: campo(r, 289, 294), prezzo_copertina: prezzo / 100 });
+      clienti.set(cliente, { codice_cliente: cliente, ragione_sociale: campo(r, 113, 142), indirizzo: campo(r, 143, 172),
+        cap: campo(r, 173, 177), citta: campo(r, 178, 198), provincia: campo(r, 199, 200), partita_iva: campo(r, 201, 211) });
+    } catch (e) { throw new Error(`riga ${i + 1}: ${e.message}`); }
+  });
+  if (dichiarate === null) throw new Error('testata MA00 mancante: non sembra un file PPSVMAGG');
+  if (lette !== dichiarate) throw new Error(`la testata dichiara ${dichiarate} righe, lette ${lette}`);
+  const movimenti = [...mov.values()].map(x => ({ ...x, lordo: x.lordo / 100, netto: x.netto / 100 }));
+  return { dataFile, righeFile: lette, movimenti, titoli: [...titoli.values()], clienti: [...clienti.values()], tot };
+}
+
+async function rpc(nome, args){
+  const { data, error } = await sb.rpc(nome, args);
+  if (error) throw new Error(`${nome}: ${error.message}`);
+  return data;
+}
+
+function mostraImport(titolo, righe){
+  $('s-progresso').innerHTML = `<h2>${titolo}</h2>${righe.map(r => `<div class="prog-riga ${r.ora ? 'ora' : ''}">
+    <span class="ico">${r.ora ? '<span class="gira">⟳</span>' : r.ok === false ? '✕' : r.ok ? '✓' : '·'}</span>
+    <span>${esc(r.nome)}${r.testo ? ' — ' + esc(r.testo) : ''}</span></div>`).join('')}`;
+  $('s-progresso').classList.remove('hidden');
+}
+
+// Importa uno o più file scaricati; i totali del database vengono confrontati con quelli del file.
+async function importaFile(files){
+  files = files.filter(f => numeroPpsv(f.nome_remoto) !== null);
+  if (!files.length) { esitoSftp(true, 'Nessun file PPSVMAGG da importare.'); return; }
+  const tasti = [...document.querySelectorAll('#view-sftp button')];
+  tasti.forEach(t => t.disabled = true);
+  esitoSftp(true, '');
+  const stato = files.map(f => ({ nome: f.nome_remoto }));
+  let errori = 0;
+  try {
+    for (let i = 0; i < files.length; i++) {
+      const f = files[i], s = stato[i], n = numeroPpsv(f.nome_remoto);
+      const passo = t => { s.ora = true; s.testo = t; mostraImport(`📥 Importazione nel database (${i + 1} di ${files.length})`, stato); };
+      try {
+        passo('lettura del file…');
+        const { data: blob, error } = await sb.storage.from('sftp-messaggerie').download(f.percorso_storage);
+        if (error) throw new Error(`file non leggibile: ${error.message}`);
+        const p = leggiPpsvmagg(new TextDecoder('windows-1252').decode(await blob.arrayBuffer()));
+        await rpc('msg_import_inizia', { p_file: n, p_nome_file: f.nome_remoto, p_data_file: p.dataFile, p_righe_file: p.righeFile });
+        passo(`anagrafiche: ${fmtN(p.titoli.length)} titoli, ${fmtN(p.clienti.length)} clienti…`);
+        for (let k = 0; k < Math.max(p.titoli.length, p.clienti.length); k += BLOCCO_IMPORT) {
+          await rpc('msg_import_anagrafiche', { p_titoli: p.titoli.slice(k, k + BLOCCO_IMPORT), p_clienti: p.clienti.slice(k, k + BLOCCO_IMPORT) });
+        }
+        for (let k = 0; k < p.movimenti.length; k += BLOCCO_IMPORT) {
+          passo(`movimenti: ${fmtN(k)} di ${fmtN(p.movimenti.length)}…`);
+          await rpc('msg_import_movimenti', { p_file: n, p_righe: p.movimenti.slice(k, k + BLOCCO_IMPORT) });
+        }
+        passo('controllo dei totali…');
+        const db = await rpc('msg_import_completa', { p_file: n });
+        const uguali = db.righe_caricate === p.movimenti.length
+          && db.copie_fornite === p.tot.F.copie && db.copie_rese === p.tot.R.copie
+          && Math.round(db.netto_fornito * 100) === p.tot.F.netto && Math.round(db.netto_reso * 100) === p.tot.R.netto;
+        s.ora = false; s.ok = uguali;
+        s.testo = `${fmtN(p.righeFile)} righe del file → ${fmtN(db.righe_caricate)} nel database · fornite ${fmtN(db.copie_fornite)} copie (${fmtEuro(db.netto_fornito)}) · rese ${fmtN(db.copie_rese)} copie (${fmtEuro(db.netto_reso)})${uguali ? '' : ' · ⚠ i totali non coincidono con il file'}`;
+        if (!uguali) errori++;
+      } catch (e) {
+        s.ora = false; s.ok = false; s.testo = e.message; errori++;
+      }
+      mostraImport(`📥 Importazione nel database (${i + 1} di ${files.length})`, stato);
+    }
+  } finally {
+    mostraImport(errori ? `⚠ Importazione terminata con ${errori} problemi` : '✓ Importazione completata', stato);
+    tasti.forEach(t => t.disabled = false);
+    await caricaSftp();
+  }
 }
 
 async function apriFileSftp(f){
