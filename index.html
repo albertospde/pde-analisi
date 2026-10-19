@@ -165,6 +165,7 @@ td.muto{color:var(--muted);}
   <div class="logo-box"><div class="pde-logo" style="font-size:16px" role="img" aria-label="PDE Analisi"><div class="pl-text"><div class="pl-name"><b>PDE</b><span>ANALISI</span></div><div class="pl-tag"><i class="c0">RACCOGLI.</i><em>I</em><i class="c1">ANALIZZA.</i><em>I</em><i class="c2">DECIDI.</i></div></div><div class="pl-wing"></div></div></div>
   <nav>
     <button class="nav-btn active" data-view="analisi">Analisi</button>
+    <button class="nav-btn" data-view="collane">Collane</button>
     <button class="nav-btn" data-view="sftp">SFTP Messaggerie</button>
   </nav>
   <div class="hdr-right">
@@ -226,6 +227,22 @@ td.muto{color:var(--muted);}
   </section>
 
   <!-- Accesso SFTP Messaggerie: le stesse credenziali di FileZilla -->
+  <!-- Collane dei codici Messaggerie che corrispondono a più editori PDE: scelta dell'editore -->
+  <section id="view-collane" class="hidden">
+    <div class="card">
+      <h2>Collane ed editori</h2>
+      <p class="sub">Nel file di Messaggerie un codice editore può comprendere più editori dell'anagrafica PDE
+        (es. 277 = La Nave di Teseo e La Nave dei Piccoli). Ogni titolo prende l'editore che ha in Giro Manager;
+        gli altri lo deducono dalla collana. Qui vedi le collane di questi codici e puoi correggere l'editore:
+        la scelta vale per tutti i titoli della collana non presenti in Giro Manager.</p>
+      <div class="filtri" style="margin-bottom:12px;">
+        <div class="field" style="min-width:240px;"><label for="c-filtro">Mostra</label>
+          <select id="c-filtro"><option value="dubbie">Solo stimate o scelte a mano</option><option value="tutte">Tutte</option></select></div>
+      </div>
+      <div id="c-elenco"><p class="nota">Caricamento…</p></div>
+    </div>
+  </section>
+
   <section id="view-sftp" class="hidden">
     <div class="card">
       <h2>🔐 Accesso SFTP Messaggerie</h2>
@@ -290,7 +307,7 @@ async function avvia(){
   }
   $('login').classList.add('hidden');
   $('user-chip').textContent = session.user.email;
-  mostraVista(location.hash === '#sftp' ? 'sftp' : 'analisi');
+  mostraVista(['#sftp', '#collane'].includes(location.hash) ? location.hash.slice(1) : 'analisi');
 }
 
 /* ═════════ NAVIGAZIONE ═════════ */
@@ -298,9 +315,54 @@ function mostraVista(v){
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.view === v));
   $('view-analisi').classList.toggle('hidden', v !== 'analisi');
   $('view-sftp').classList.toggle('hidden', v !== 'sftp');
-  history.replaceState(null, '', v === 'sftp' ? '#sftp' : location.pathname);
+  $('view-collane').classList.toggle('hidden', v !== 'collane');
+  history.replaceState(null, '', v === 'analisi' ? location.pathname : '#' + v);
+  if (v === 'collane') caricaCollane();
   if (v === 'sftp') caricaSftp();
   if (v === 'analisi') avviaAnalisi();
+}
+
+/* ═════════ COLLANE: editore delle collane nei codici con più editori PDE ═════════
+   msg_collane_da_assegnare elenca le collane; msg_collana_imposta salva la scelta (o la toglie con
+   "Automatico") e ricalcola subito editori e riepiloghi. */
+let collaneCaricate = [];
+
+async function caricaCollane(){
+  if (!$('c-filtro').onchange) $('c-filtro').onchange = disegnaCollane;
+  try {
+    collaneCaricate = await rpc('msg_collane_da_assegnare', {});
+    disegnaCollane();
+  } catch (e) { $('c-elenco').innerHTML = `<p class="err">${esc(e.message)}</p>`; }
+}
+
+function disegnaCollane(){
+  const tutte = $('c-filtro').value === 'tutte';
+  const righe = collaneCaricate.filter(c => tutte || c.fonte === 'stimato' || c.fonte === 'scelta a mano');
+  if (!righe.length) { $('c-elenco').innerHTML = '<p class="nota">Nessuna collana da controllare.</p>'; return; }
+  $('c-elenco').innerHTML = `<div class="tbl-wrap" style="max-height:640px;"><table>
+    <tr><th>Codice</th><th>Collana</th><th>Esempi di titoli</th><th class="num">Titoli</th><th class="num">Netto</th><th>Editore</th><th>Origine</th></tr>
+    ${righe.map(c => {
+      const i = collaneCaricate.indexOf(c);
+      const manuale = c.fonte === 'scelta a mano';
+      const nomi = [...new Set([...(c.editori_possibili || []), c.editore])].sort();
+      return `<tr><td>${esc(c.codice_editore)}</td><td><b>${esc(c.collana || '—')}</b></td>
+        <td class="muto" style="white-space:normal;min-width:240px;">${esc(c.esempi)}</td>
+        <td class="num">${fmtN(c.titoli)}</td><td class="num">${fmtEuro(c.netto)}</td>
+        <td><select data-collana="${i}" aria-label="Editore della collana ${esc(c.collana)}">
+          <option value="">Automatico${manuale ? '' : ` (${esc(c.editore)})`}</option>
+          ${nomi.map(n => `<option value="${esc(n)}"${manuale && n === c.editore ? ' selected' : ''}>${esc(n)}</option>`).join('')}
+        </select></td>
+        <td class="muto">${esc(c.fonte)}</td></tr>`;
+    }).join('')}
+  </table></div>`;
+  $('c-elenco').querySelectorAll('[data-collana]').forEach(sel => sel.onchange = async () => {
+    const c = collaneCaricate[Number(sel.dataset.collana)];
+    sel.disabled = true;
+    try {
+      await rpc('msg_collana_imposta', { p_codice: c.codice_editore, p_collana: c.collana, p_editore: sel.value || null });
+      await caricaCollane();
+    } catch (e) { alert(e.message); sel.disabled = false; }
+  });
 }
 
 /* ═════════ ANALISI: vendite e rese per editore e titolo nel tempo ═════════
@@ -355,8 +417,8 @@ async function aggiornaAnalisi(){
   // Elenco editori del periodo nel filtro (mantiene la scelta)
   $('a-editore').innerHTML = '<option value="">Tutti gli editori</option>' + editori
     .slice().sort((x, y) => x.editore.localeCompare(y.editore, 'it'))
-    .map(e => `<option value="${esc(e.codice_editore)}"${e.codice_editore === an.editore ? ' selected' : ''}>${esc(e.editore)}</option>`).join('');
-  const nomeEd = an.editore ? (editori.find(e => e.codice_editore === an.editore)?.editore || an.editore) : null;
+    .map(e => `<option value="${esc(e.editore)}"${e.editore === an.editore ? ' selected' : ''}>${esc(e.editore)}</option>`).join('');
+  const nomeEd = an.editore;
   $('a-chip').innerHTML = an.ean ? `<span class="chip-filtro">Titolo: ${esc(an.titoloEan || an.ean)}<button id="a-togli-ean" aria-label="Togli il filtro titolo">✕</button></span>` : '';
   if (an.ean) $('a-togli-ean').onclick = () => { an.ean = null; aggiornaAnalisi(); };
 
@@ -371,7 +433,7 @@ async function aggiornaAnalisi(){
 
   $('a-card-editori').classList.toggle('hidden', !!an.editore);
   $('a-editori').innerHTML = tabella(['Editore', 'Titoli', 'Fornite', 'Rese', 'Resa', 'Netto'], editori.map(e => ({
-    attr: `data-editore="${esc(e.codice_editore)}"`,
+    attr: `data-editore="${esc(e.editore)}"`,
     celle: [esc(e.editore), fmtN(e.titoli), fmtN(e.copie_f), fmtN(e.copie_r), fmtPerc(e.copie_r, e.copie_f), fmtEuro(e.netto_f - e.netto_r)],
   })));
   $('a-editori').querySelectorAll('[data-editore]').forEach(tr => tr.onclick = () => {
@@ -385,20 +447,20 @@ async function caricaTitoli(){
   const n = an.richiesta;
   const titoli = await rpc('msg_analisi_titoli', { p_da: $('a-da').value, p_a: $('a-a').value, p_editore: an.editore, p_cerca: $('a-cerca').value.trim() || null, p_limite: 300 });
   if (n !== an.richiesta) return;
-  $('a-titoli').innerHTML = titoli.length ? tabella(['Titolo', 'EAN', 'Editore', 'Prezzo', 'Fornite', 'Rese', 'Resa', 'Netto'], titoli.map(t => ({
+  $('a-titoli').innerHTML = titoli.length ? tabella(['Titolo', 'EAN', 'Editore', 'Collana', 'Prezzo', 'Fornite', 'Rese', 'Resa', 'Netto'], titoli.map(t => ({
     attr: `data-ean="${esc(t.ean)}" data-titolo="${esc(t.titolo)}"`,
-    celle: [esc(t.titolo), `<span class="muto">${esc(t.ean)}</span>`, esc(t.editore), fmtEuro(t.prezzo), fmtN(t.copie_f), fmtN(t.copie_r), fmtPerc(t.copie_r, t.copie_f), fmtEuro(t.netto_f - t.netto_r)],
-  }))) : '<p class="nota">Nessun titolo nel periodo con questi filtri.</p>';
+    celle: [esc(t.titolo), `<span class="muto">${esc(t.ean)}</span>`, esc(t.editore), `<span class="muto">${esc(t.collana)}</span>`, fmtEuro(t.prezzo), fmtN(t.copie_f), fmtN(t.copie_r), fmtPerc(t.copie_r, t.copie_f), fmtEuro(t.netto_f - t.netto_r)],
+  })), 4) : '<p class="nota">Nessun titolo nel periodo con questi filtri.</p>';
   $('a-titoli').querySelectorAll('[data-ean]').forEach(tr => tr.onclick = () => {
     an.ean = tr.dataset.ean; an.titoloEan = tr.dataset.titolo; aggiornaAnalisi(); window.scrollTo({ top: 0, behavior: 'smooth' });
   });
 }
 
-// Tabella semplice: la prima colonna è testo, le altre numeri allineati a destra
-function tabella(intest, righe){
+// Tabella semplice: le prime nTesto colonne sono testo, le altre numeri allineati a destra
+function tabella(intest, righe, nTesto = 1){
   return `<div class="tbl-wrap" style="max-height:520px;"><table>
-    <tr>${intest.map((h, i) => `<th class="${i ? 'num' : ''}">${h}</th>`).join('')}</tr>
-    ${righe.map(r => `<tr class="cliccabile" ${r.attr}>${r.celle.map((c, i) => `<td class="${i ? 'num' : ''}">${c}</td>`).join('')}</tr>`).join('')}
+    <tr>${intest.map((h, i) => `<th class="${i >= nTesto ? 'num' : ''}">${h}</th>`).join('')}</tr>
+    ${righe.map(r => `<tr class="cliccabile" ${r.attr}>${r.celle.map((c, i) => `<td class="${i >= nTesto ? 'num' : ''}">${c}</td>`).join('')}</tr>`).join('')}
   </table></div>`;
 }
 
@@ -832,7 +894,7 @@ function leggiPpsvmagg(testo){
       mov.set(k, x);
       tot[m].copie += copie; tot[m].netto += netto;
       titoli.set(ean, { ean, titolo: campo(r, 311, 370), codice_editore: campo(r, 259, 261).replace(/^0+/, ''),
-        sigla_editore: campo(r, 289, 294), prezzo_copertina: prezzo / 100 });
+        collana: campo(r, 289, 294), prezzo_copertina: prezzo / 100 });
       clienti.set(cliente, { codice_cliente: cliente, ragione_sociale: campo(r, 113, 142), indirizzo: campo(r, 143, 172),
         cap: campo(r, 173, 177), citta: campo(r, 178, 198), provincia: campo(r, 199, 200), partita_iva: campo(r, 201, 211) });
     } catch (e) { throw new Error(`riga ${i + 1}: ${e.message}`); }

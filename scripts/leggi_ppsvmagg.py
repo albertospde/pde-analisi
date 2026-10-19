@@ -49,7 +49,7 @@ CAMPI = [
     ("movimento",          266, 267, "t"),   # F1/F0 fornito, R1 reso
     ("file",               269, 275, "t"),   # PPSV + numero file
     ("ean",                276, 288, "t"),
-    ("sigla_editore",      289, 294, "t"),   # ADE = Adelphi, ...
+    ("collana",            289, 294, "t"),   # collana (ADE, PBA, ...): NON è l'editore
     ("codice_297_298",     297, 298, "t"),   # legato al cliente: zona/area?
     ("magazzino",          299, 304, "t"),   # ME6021
     ("titolo",             311, 370, "t"),
@@ -123,5 +123,5 @@ if __name__ == "__main__":
               f"netto {sum(r['importo_netto'] for r in sel):12,.2f} EUR")
     print("  Documenti:", dict(Counter(r["tipo_documento"] for r in righe)))
     print("  Clienti:", len({r["codice_cliente"] for r in righe}), "· Titoli:", len({r["ean"] for r in righe}),
-          "· Editori (sigle):", len({r["sigla_editore"] for r in righe}))
+          "· Codici editore:", len({r["codice_editore"] for r in righe}), "· Collane:", len({(r["codice_editore"], r["collana"]) for r in righe}))
     print("  Date ordine dal", min(r["data_ordine"] for r in righe), "al", max(r["data_ordine"] for r in righe))

@@ -50,11 +50,11 @@ Affidabilità: ✅ verificato con dati esterni o formule su tutte le righe · �
 | 231-233 | Causale | YLF | 🟡 | YLF fornito, LR reso, ... |
 | 234-242 | Riferimento cliente | | ❓ | quasi sempre vuoto |
 | 258 | Codice | 3 | ❓ | una cifra |
-| 259-261 | Codice editore Messaggerie | A94 | ✅ | = `codice_editore` di Giro Manager (0000000277 → 277) su 5.838/5.838 righe |
+| 259-261 | Codice editore Messaggerie | A94 | ✅ | = `codice_editore` di Giro Manager (0000000277 → 277) su 5.838/5.838 righe. Un codice può comprendere più editori PDE (277 = La Nave di Teseo e La Nave dei Piccoli): l'editore si assegna per titolo, vedi sotto |
 | 266-267 | Movimento | F1 | ✅ | F = fornito, R = reso (coincide con i documenti di reso) |
 | 269-275 | File | PPSV286 | ✅ | |
 | 276-288 | EAN | 9788880636809 | ✅ | |
-| 289-294 | Sigla editore | STORIA | ✅ | 1 per titolo (ADE = Adelphi, ...) |
+| 289-294 | Collana | STORIA | ✅ | 1 per titolo; NON è l'editore (Adelphi ne ha 24: ADE, PBA, BAD, ...) |
 | 297-298 | Codice | 28 | ❓ | legato al cliente: zona / area? |
 | 299-304 | Magazzino | ME6021 | 🟡 | |
 | 311-370 | Titolo | RAGAZZI VENUTI TERRA ISRAELE | ✅ | |
@@ -71,6 +71,15 @@ Affidabilità: ✅ verificato con dati esterni o formule su tutte le righe · �
 | 803-812 | Numero documento | 0000330751 | 🟡 | |
 
 Le posizioni non elencate sono spazi o zeri fissi.
+
+## Editore di un titolo
+
+Il file non contiene il nome dell'editore. PDE Analisi lo assegna a ogni titolo (`_msg_assegna_editori`):
+1. editore del titolo in Giro Manager (titoli, titoli manuali, lanci), ricondotto all'anagrafica `ranking_editori`
+   (alias di Giro Manager; nomi confrontati senza articoli e "Edizioni/Editore/Srl");
+2. scelta a mano della collana (pagina Collane di PDE Analisi, tabella `msg_collane_editore`);
+3. editore prevalente fra i titoli noti con stesso codice e stessa collana;
+4. editore principale del codice in anagrafica; altrimenti "EDITORE COD. X".
 
 ## Controllo su PPSVMAGG.286
 
