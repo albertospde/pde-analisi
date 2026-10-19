@@ -99,6 +99,14 @@ td{padding:8px;border-bottom:1px solid var(--border);vertical-align:middle;font-
 td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;}
 td.ko{color:var(--ko);}
 .nota{color:var(--muted);font-size:12px;}
+.barra{height:8px;background:var(--card-2);border-radius:4px;overflow:hidden;margin:10px 0 12px;}
+.barra div{height:100%;background:var(--blu);transition:width .3s;}
+.prog-riga{display:flex;gap:10px;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:13px;}
+.prog-riga .ico{width:18px;text-align:center;}
+.prog-riga .dim{margin-left:auto;color:var(--muted);font-variant-numeric:tabular-nums;}
+.prog-riga.ora{font-weight:600;}
+@keyframes gira{to{transform:rotate(360deg);}}
+.gira{display:inline-block;animation:gira 1s linear infinite;}
 
 /* ── Login ── */
 .login{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:100;padding:16px;}
@@ -173,6 +181,7 @@ td.ko{color:var(--ko);}
       </div>
     </div>
     <div id="s-esito"></div>
+    <div class="card hidden" id="s-progresso"></div>
     <div class="card hidden" id="s-remoto"></div>
     <div class="card">
       <h2>⬇ File scaricati</h2>
@@ -386,33 +395,86 @@ async function cambiaScelta(f, valore){
   esitoSftp(true, `${f.nome}: ${incluso === true ? 'incluso' : incluso === false ? 'escluso' : 'torna automatico'}. Premi "Scarica ora" per scaricare subito i file inclusi.`);
 }
 
+/* ── Avanzamento di "Scarica ora" ──
+   Prima si chiede l'elenco dei file da scaricare (azione "da-scaricare"), poi la funzione li prende
+   uno per chiamata nello stesso ordine: il pannello mostra barra, file in corso, tempo e completati. */
+const prog = { file: [], stato: {}, corrente: null, inizio: 0, timer: null };
+
+function fmtTempo(ms){ const s = Math.floor(ms / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; }
+
+function disegnaProgresso(titolo){
+  const tot = prog.file.length;
+  const fatti = prog.file.filter(f => prog.stato[f.nome] === 'ok').length;
+  const mbTot = prog.file.reduce((s, f) => s + f.dimensione, 0);
+  const mbFatti = prog.file.filter(f => prog.stato[f.nome] === 'ok').reduce((s, f) => s + f.dimensione, 0);
+  const icona = { ok: '✓', saltato: '⚠', errore: '✕' };
+  $('s-progresso').innerHTML = `<h2>${titolo}</h2>
+    <p class="sub">${fatti} di ${tot} file · ${fmtDim(mbFatti)} di ${fmtDim(mbTot)} · tempo ${fmtTempo(Date.now() - prog.inizio)}</p>
+    <div class="barra"><div style="width:${tot ? Math.round(fatti / tot * 100) : 0}%"></div></div>
+    ${prog.file.map(f => {
+      const st = prog.stato[f.nome];
+      const ora = f.nome === prog.corrente && !st;
+      return `<div class="prog-riga ${ora ? 'ora' : ''}" style="${st || ora ? '' : 'opacity:.55;'}">
+        <span class="ico">${ora ? '<span class="gira">⟳</span>' : icona[st] || '·'}</span>
+        <span>${esc(f.nome)}${ora ? ' — in download…' : st === 'saltato' ? ' — saltato (troppo pesante)' : st === 'errore' ? ' — errore' : ''}</span>
+        <span class="dim">${fmtDim(f.dimensione)}</span></div>`;
+    }).join('')}`;
+  $('s-progresso').classList.remove('hidden');
+}
+
 // La funzione scarica un file per chiamata: si richiama finché ne restano.
 // Un'interruzione (file troppo pesante) si riprova: dopo 2 la funzione salta quel file da sola.
 $('s-scarica').onclick = () => conBottone('s-scarica', 'Download in corso…', async () => {
   esitoSftp(true, '');
+  Object.assign(prog, { file: [], stato: {}, corrente: null, inizio: Date.now() });
+  $('s-progresso').innerHTML = '<h2><span class="gira">⟳</span> Controllo i file da scaricare…</h2>';
+  $('s-progresso').classList.remove('hidden');
+  try {
+    prog.file = (await chiamaSftp('da-scaricare')).file;
+  } catch (e) {
+    $('s-progresso').classList.add('hidden');
+    esitoSftp(false, e.message);
+    return;
+  }
+  if (!prog.file.length) {
+    $('s-progresso').classList.add('hidden');
+    esitoSftp(true, 'Nessun file nuovo da scaricare.');
+    return;
+  }
+  clearInterval(prog.timer);
+  prog.timer = setInterval(() => disegnaProgresso('⬇ Download in corso'), 1000);
   const fatti = [];
   let saltati = [], interruzioni = 0;
-  for (let giro = 0; giro < 60; giro++) {
-    try {
-      const r = await chiamaSftp('scarica');
-      fatti.push(...r.scaricati.map(s => s.nome));
-      saltati = r.saltati || [];
-      interruzioni = 0;
-      if (!r.scaricati.length || !r.rimanenti) break;
-      $('s-scarica').textContent = `Scaricati ${fatti.length}, ne restano ${r.rimanenti}…`;
-      await caricaSftp();
-    } catch (e) {
-      if (e.interrotto && ++interruzioni <= 2) { $('s-scarica').textContent = 'File pesante, riprovo…'; continue; }
-      esitoSftp(false, fatti.length ? `Scaricati ${fatti.length} file, poi: ${e.message}` : e.message);
-      await caricaSftp();
-      return;
+  try {
+    for (let giro = 0; giro < 60; giro++) {
+      // La funzione prende il primo file non ancora fatto, nello stesso ordine dell'elenco
+      prog.corrente = prog.file.find(f => !prog.stato[f.nome])?.nome || null;
+      disegnaProgresso('⬇ Download in corso');
+      try {
+        const r = await chiamaSftp('scarica');
+        r.scaricati.forEach(s => { prog.stato[s.nome] = 'ok'; fatti.push(s.nome); });
+        saltati = r.saltati || [];
+        saltati.forEach(n => { if (!prog.stato[n]) prog.stato[n] = 'saltato'; });
+        interruzioni = 0;
+        if (!r.scaricati.length || !r.rimanenti) break;
+        await caricaSftp();
+      } catch (e) {
+        if (e.interrotto && ++interruzioni <= 2) continue;
+        if (prog.corrente) prog.stato[prog.corrente] = 'errore';
+        esitoSftp(false, fatti.length ? `Scaricati ${fatti.length} file, poi: ${e.message}` : e.message);
+        return;
+      }
     }
+  } finally {
+    clearInterval(prog.timer);
+    prog.corrente = null;
+    disegnaProgresso(fatti.length === prog.file.length ? '✓ Download completato' : '⬇ Download terminato');
+    await caricaSftp();
   }
   const nota = saltati.length ? ` Saltati perché troppo pesanti: ${saltati.join(', ')}.` : '';
   esitoSftp(!saltati.length || fatti.length > 0, fatti.length
-    ? `Scaricati ${fatti.length} file: ${fatti.join(', ')}.${nota}`
-    : `Nessun file nuovo da scaricare.${nota}`);
-  await caricaSftp();
+    ? `Scaricati ${fatti.length} file in ${fmtTempo(Date.now() - prog.inizio)}.${nota}`
+    : `Nessun file scaricato.${nota}`);
 });
 
 // Elimina dal bucket e segna la riga come cancellata: il file non viene riscaricato dal server.
