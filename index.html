@@ -72,6 +72,8 @@ input:focus{outline:none;border-color:var(--blu);}
 .btn-sec{background:var(--card-2);border-color:var(--border);}
 .btn-sec:hover{border-color:var(--blu);}
 .btn-sm{padding:5px 10px;font-size:12px;}
+.btn-ko{background:transparent;border-color:var(--ko);color:var(--ko);}
+.btn-ko:hover:not(:disabled){background:rgba(239,91,91,.14);}
 .err{color:var(--ko);font-weight:600;font-size:13px;min-height:18px;}
 
 /* ── Navigazione e sezioni ── */
@@ -249,7 +251,7 @@ async function chiamaSftp(azione){
 async function caricaSftp(){
   const [cfg, file, reg] = await Promise.all([
     sb.from('sftp_config').select('*').eq('id', 1).maybeSingle(),
-    sb.from('sftp_file').select('*').order('scaricato_il', { ascending: false }).limit(50),
+    sb.from('sftp_file').select('*').is('cancellato_il', null).order('scaricato_il', { ascending: false }).limit(200),
     sb.from('sftp_esecuzioni').select('*').order('quando', { ascending: false }).limit(20),
   ]);
   if (cfg.error || !cfg.data) { esitoSftp(false, cfg.error?.message || 'Impostazioni SFTP non leggibili.'); return; }
@@ -263,12 +265,29 @@ async function caricaSftp(){
   $('s-impronta').textContent = c.impronta_server ? `Impronta server: ${c.impronta_server}` : '';
 
   sftpFile = file.data || [];
-  $('s-file').innerHTML = sftpFile.length ? `<div class="tbl-wrap"><table>
-    <tr><th>File</th><th class="num">Dimensione</th><th>Sul server dal</th><th>Scaricato il</th><th>Origine</th><th></th></tr>
-    ${sftpFile.map((f, i) => `<tr><td>${esc(f.nome_remoto)}</td><td class="num">${fmtDim(f.dimensione)}</td><td>${fmtDataOra(f.modificato_remoto)}</td>
-      <td>${fmtDataOra(f.scaricato_il)}</td><td>${esc(f.origine)}</td><td><button class="btn btn-sec btn-sm" data-file="${i}">↓ Scarica</button></td></tr>`).join('')}
-  </table></div>` : '<p class="nota">Nessun file scaricato finora.</p>';
+  $('s-file').innerHTML = sftpFile.length ? `
+    <div class="azioni" style="margin:0 0 10px;"><button class="btn btn-ko btn-sm" id="s-elimina-sel" disabled>🗑 Elimina selezionati</button></div>
+    <div class="tbl-wrap"><table>
+    <tr><th><input type="checkbox" id="s-sel-tutti" aria-label="Seleziona tutti"></th><th>File</th><th class="num">Dimensione</th><th>Sul server dal</th><th>Scaricato il</th><th>Origine</th><th></th></tr>
+    ${sftpFile.map((f, i) => `<tr><td><input type="checkbox" class="s-sel" data-i="${i}" aria-label="Seleziona ${esc(f.nome_remoto)}"></td>
+      <td>${esc(f.nome_remoto)}</td><td class="num">${fmtDim(f.dimensione)}</td><td>${fmtDataOra(f.modificato_remoto)}</td>
+      <td>${fmtDataOra(f.scaricato_il)}</td><td>${esc(f.origine)}</td>
+      <td style="white-space:nowrap;"><button class="btn btn-sec btn-sm" data-file="${i}">↓ Scarica</button>
+        <button class="btn btn-ko btn-sm" data-elimina="${i}" title="Elimina">🗑</button></td></tr>`).join('')}
+  </table></div>` : '<p class="nota">Nessun file scaricato.</p>';
   $('s-file').querySelectorAll('[data-file]').forEach(b => b.onclick = () => apriFileSftp(sftpFile[Number(b.dataset.file)]));
+  $('s-file').querySelectorAll('[data-elimina]').forEach(b => b.onclick = () => eliminaFileSftp([sftpFile[Number(b.dataset.elimina)]]));
+  const selezionati = () => [...$('s-file').querySelectorAll('.s-sel:checked')].map(c => sftpFile[Number(c.dataset.i)]);
+  const aggiornaSel = () => {
+    const n = selezionati().length;
+    $('s-elimina-sel').disabled = !n;
+    $('s-elimina-sel').textContent = n ? `🗑 Elimina selezionati (${n})` : '🗑 Elimina selezionati';
+  };
+  if (sftpFile.length) {
+    $('s-file').querySelectorAll('.s-sel').forEach(c => c.onchange = aggiornaSel);
+    $('s-sel-tutti').onchange = e => { $('s-file').querySelectorAll('.s-sel').forEach(c => c.checked = e.target.checked); aggiornaSel(); };
+    $('s-elimina-sel').onclick = () => eliminaFileSftp(selezionati());
+  }
 
   const esecuzioni = reg.data || [];
   const auto = esecuzioni.find(e => e.origine === 'automatico');
@@ -326,6 +345,22 @@ $('s-scarica').onclick = () => conBottone('s-scarica', 'Download in corso…', a
   } catch (e) { esitoSftp(false, e.message); }
   await caricaSftp();
 });
+
+// Elimina dal bucket e segna la riga come cancellata: il file non viene riscaricato dal server.
+async function eliminaFileSftp(files){
+  if (!files.length) return;
+  const domanda = files.length === 1
+    ? `Eliminare "${files[0].nome_remoto}"?`
+    : `Eliminare ${files.length} file?`;
+  if (!confirm(`${domanda}\n\nIl file viene cancellato da PDE Analisi (non dal server di Messaggerie) e non verrà riscaricato.`)) return;
+  const percorsi = [...new Set(files.map(f => f.percorso_storage))];
+  const { error } = await sb.storage.from('sftp-messaggerie').remove(percorsi);
+  if (error) { esitoSftp(false, `Eliminazione non riuscita: ${error.message}`); return; }
+  const { error: e2 } = await sb.rpc('sftp_file_segna_eliminati', { p_ids: files.map(f => f.id) });
+  if (e2) { esitoSftp(false, `Eliminazione non riuscita: ${e2.message}`); return; }
+  esitoSftp(true, files.length === 1 ? `Eliminato ${files[0].nome_remoto}.` : `Eliminati ${files.length} file.`);
+  await caricaSftp();
+}
 
 async function apriFileSftp(f){
   const { data, error } = await sb.storage.from('sftp-messaggerie').createSignedUrl(f.percorso_storage, 300, { download: f.nome_remoto });
