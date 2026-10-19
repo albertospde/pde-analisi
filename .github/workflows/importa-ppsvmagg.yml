@@ -1,0 +1,30 @@
+name: Importazione PPSVMAGG del mattino
+
+# Importa nel database i PPSVMAGG che la edge function sftp-messaggerie ha scaricato tra le 5:30 e
+# le 7:30. GitHub usa l'ora UTC: 6:15 e 7:15 UTC coprono le 8:15 italiane sia con l'ora legale
+# che con quella solare. Lo script parte solo dopo le 8:00 italiane; il secondo passaggio
+# importa soltanto ciò che non è stato importato al primo.
+on:
+  schedule:
+    - cron: "15 6 * * *"
+    - cron: "15 7 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: importa-ppsvmagg
+  cancel-in-progress: false
+
+jobs:
+  importa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Importa i PPSVMAGG scaricati
+        run: node --max-old-space-size=4096 scripts/importa-ppsvmagg.mjs
+        env:
+          MSG_IMPORT_CRON_KEY: ${{ secrets.MSG_IMPORT_CRON_KEY }}
+          FORZA: ${{ github.event_name == 'workflow_dispatch' && '1' || '' }}
