@@ -117,6 +117,19 @@ html[data-theme="light"]{ --serie-1:#2a78d6; --serie-2:#eb6834; --griglia:rgba(2
 .filtri select{padding:8px 10px;}
 .chip-filtro{display:inline-flex;align-items:center;gap:8px;background:var(--card-2);border:1px solid var(--border);border-radius:20px;padding:4px 6px 4px 12px;font-size:13px;margin:0 8px 12px 0;}
 .chip-filtro button{background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:0 6px;}
+/* Scelta multipla degli editori: le spunte valgono solo con "Applica" */
+.multi{position:relative;}
+.multi-btn{background:var(--input);border:1px solid var(--border);border-radius:7px;padding:8px 28px 8px 10px;text-align:left;cursor:pointer;min-width:220px;max-width:320px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;position:relative;}
+.multi-btn::after{content:'▾';position:absolute;right:10px;color:var(--muted);}
+.multi-btn:focus{outline:none;border-color:var(--blu);}
+.multi-pannello{position:absolute;top:100%;left:0;margin-top:4px;z-index:15;width:340px;max-width:calc(100vw - 32px);background:var(--card);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow);padding:10px;}
+.multi-azioni{display:flex;gap:6px;margin:8px 0;}
+.multi-lista{max-height:300px;overflow-y:auto;border-top:1px solid var(--border);border-bottom:1px solid var(--border);padding:4px 0;}
+.multi-lista label{display:flex;align-items:center;gap:8px;padding:5px 4px;font-size:13px;cursor:pointer;border-radius:5px;text-transform:none;letter-spacing:0;font-weight:400;color:var(--text);}
+.multi-lista label:hover{background:var(--card-2);}
+.multi-lista .acc{margin-left:auto;font-size:11px;color:var(--muted);}
+.multi-piede{display:flex;gap:6px;align-items:center;margin-top:8px;}
+.multi-piede .nota{margin-right:auto;}
 .kpi-riga{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:16px;}
 .kpi{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 16px;}
 .kpi-l{font-size:12px;color:var(--muted);}
@@ -196,7 +209,18 @@ td.muto{color:var(--muted);}
       <div class="field"><label for="a-a">Al</label><input type="date" id="a-a"></div>
       <div class="field"><label for="a-grana">Raggruppa per</label>
         <select id="a-grana"><option value="giorno">Giorno</option><option value="settimana">Settimana</option><option value="mese">Mese</option></select></div>
-      <div class="field" style="min-width:220px;"><label for="a-editore">Editore</label><select id="a-editore"><option value="">Tutti gli editori</option></select></div>
+      <div class="field" style="min-width:180px;"><label for="a-account">Account editore</label><select id="a-account"><option value="">Tutti gli account</option></select></div>
+      <div class="field multi" style="min-width:220px;"><label for="a-editori-btn">Editori</label>
+        <button type="button" class="multi-btn" id="a-editori-btn" aria-haspopup="true" aria-expanded="false">Tutti gli editori</button>
+        <div class="multi-pannello hidden" id="a-editori-pannello">
+          <input type="text" id="a-editori-cerca" placeholder="Cerca editore…">
+          <div class="multi-azioni"><button type="button" class="btn btn-sec btn-sm" id="a-editori-tutti">Seleziona tutti</button>
+            <button type="button" class="btn btn-sec btn-sm" id="a-editori-nessuno">Deseleziona tutti</button></div>
+          <div class="multi-lista" id="a-editori-lista"></div>
+          <div class="multi-piede"><span class="nota" id="a-editori-conta"></span>
+            <button type="button" class="btn btn-sec btn-sm" id="a-editori-annulla">Annulla</button>
+            <button type="button" class="btn btn-primary btn-sm" id="a-editori-applica">Applica</button></div>
+        </div></div>
       <div class="field" style="min-width:220px;"><label for="a-cerca">Titolo o EAN</label><input type="text" id="a-cerca" placeholder="Cerca…"></div>
     </div>
     <div id="a-chip"></div>
@@ -368,7 +392,20 @@ function disegnaCollane(){
 /* ═════════ ANALISI: vendite e rese per editore e titolo nel tempo ═════════
    Legge i riepiloghi giornalieri (msg_editore_giorno / msg_titolo_giorno) tramite le RPC
    msg_analisi_*: la pagina riceve solo i totali. Data = data del documento Messaggerie. */
-const an = { periodo: null, editore: null, ean: null, titoloEan: null, pronto: false, richiesta: 0 };
+// account: null = tutti, NESSUN_ACCOUNT = editori senza account; sel: null = tutti gli editori (dell'account), altrimenti Set di nomi
+const NESSUN_ACCOUNT = '-';
+const an = { periodo: null, account: null, sel: null, elenco: [], bozza: null, ean: null, titoloEan: null, pronto: false, richiesta: 0 };
+const delAccount = e => !an.account || (an.account === NESSUN_ACCOUNT ? !e.account : e.account === an.account);
+const editoriVisibili = () => an.elenco.filter(delAccount);
+const editoriFiltrati = () => editoriVisibili().filter(e => !an.sel || an.sel.has(e.editore));
+// Elenco da passare alle RPC: null = nessun filtro sugli editori
+const filtroEditori = () => !an.account && !an.sel ? null : editoriFiltrati().map(e => e.editore);
+const nomeAccount = a => a === NESSUN_ACCOUNT ? 'senza account' : a;
+function descrizioneEditori(){
+  const f = editoriFiltrati();
+  if (!an.sel) return an.account ? `account ${nomeAccount(an.account)}` : '';
+  return f.length === 1 ? f[0].editore : `${f.length} editori`;
+}
 const isoGiorno = d => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
 const piuGiorni = (iso, n) => { const d = new Date(iso + 'T12:00:00'); d.setDate(d.getDate() + n); return isoGiorno(d); };
 const fmtGiorno = iso => new Date(iso + 'T12:00:00').toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: '2-digit' });
@@ -380,7 +417,8 @@ async function avviaAnalisi(){
     $('a-periodo').onchange = () => { applicaPeriodo(); aggiornaAnalisi(); };
     $('a-da').onchange = $('a-a').onchange = () => { $('a-periodo').value = 'libero'; aggiornaAnalisi(); };
     $('a-grana').onchange = aggiornaAnalisi;
-    $('a-editore').onchange = () => { an.editore = $('a-editore').value || null; an.ean = null; aggiornaAnalisi(); };
+    $('a-account').onchange = () => { an.account = $('a-account').value || null; an.sel = null; an.ean = null; aggiornaAnalisi(); };
+    preparaSceltaEditori();
     let attesa;
     $('a-cerca').oninput = () => { clearTimeout(attesa); attesa = setTimeout(caricaTitoli, 350); };
     $('a-vai-sftp').onclick = e => { e.preventDefault(); mostraVista('sftp'); };
@@ -409,18 +447,31 @@ async function aggiornaAnalisi(){
   const n = ++an.richiesta;
   const da = $('a-da').value, a = $('a-a').value;
   if (!da || !a) return;
-  const [anda, editori] = await Promise.all([
-    rpc('msg_analisi_andamento', { p_da: da, p_a: a, p_editore: an.editore, p_ean: an.ean, p_grana: $('a-grana').value }),
-    rpc('msg_analisi_editori', { p_da: da, p_a: a }),
-  ]);
+  // Prima l'elenco degli editori del periodo: serve a tradurre account e scelta in nomi da filtrare
+  const editori = await rpc('msg_analisi_editori', { p_da: da, p_a: a });
   if (n !== an.richiesta) return;   // nel frattempo è cambiato un filtro
-  // Elenco editori del periodo nel filtro (mantiene la scelta)
-  $('a-editore').innerHTML = '<option value="">Tutti gli editori</option>' + editori
-    .slice().sort((x, y) => x.editore.localeCompare(y.editore, 'it'))
-    .map(e => `<option value="${esc(e.editore)}"${e.editore === an.editore ? ' selected' : ''}>${esc(e.editore)}</option>`).join('');
-  const nomeEd = an.editore;
-  $('a-chip').innerHTML = an.ean ? `<span class="chip-filtro">Titolo: ${esc(an.titoloEan || an.ean)}<button id="a-togli-ean" aria-label="Togli il filtro titolo">✕</button></span>` : '';
-  if (an.ean) $('a-togli-ean').onclick = () => { an.ean = null; aggiornaAnalisi(); };
+  an.elenco = editori;
+  const anda = await rpc('msg_analisi_andamento', { p_da: da, p_a: a, p_editori: filtroEditori(), p_ean: an.ean, p_grana: $('a-grana').value });
+  if (n !== an.richiesta) return;
+
+  // Account del periodo nel filtro (mantiene la scelta)
+  const account = [...new Set(editori.map(e => e.account).filter(Boolean))].sort((x, y) => x.localeCompare(y, 'it'));
+  $('a-account').innerHTML = '<option value="">Tutti gli account</option>'
+    + account.map(x => `<option value="${esc(x)}"${x === an.account ? ' selected' : ''}>${esc(x)}</option>`).join('')
+    + (editori.some(e => !e.account) ? `<option value="${NESSUN_ACCOUNT}"${an.account === NESSUN_ACCOUNT ? ' selected' : ''}>Senza account</option>` : '');
+  aggiornaBottoneEditori();
+
+  const nomeEd = descrizioneEditori();
+  $('a-chip').innerHTML = [
+    an.account ? `<span class="chip-filtro">Account: ${esc(nomeAccount(an.account))}<button data-togli="account" aria-label="Togli il filtro account">✕</button></span>` : '',
+    an.sel ? `<span class="chip-filtro">Editori: ${esc(nomeEd)}<button data-togli="editori" aria-label="Togli il filtro editori">✕</button></span>` : '',
+    an.ean ? `<span class="chip-filtro">Titolo: ${esc(an.titoloEan || an.ean)}<button data-togli="ean" aria-label="Togli il filtro titolo">✕</button></span>` : '',
+  ].join('');
+  $('a-chip').querySelectorAll('[data-togli]').forEach(b => b.onclick = () => {
+    if (b.dataset.togli === 'account') { an.account = null; an.sel = null; }
+    if (b.dataset.togli === 'editori') an.sel = null;
+    an.ean = null; aggiornaAnalisi();
+  });
 
   const tot = anda.reduce((s, x) => ({ f: s.f + Number(x.copie_f), r: s.r + Number(x.copie_r), nf: s.nf + Number(x.netto_f), nr: s.nr + Number(x.netto_r) }), { f: 0, r: 0, nf: 0, nr: 0 });
   $('k-f').textContent = fmtN(tot.f);
@@ -431,21 +482,23 @@ async function aggiornaAnalisi(){
   an.serie = anda;
   disegnaGrafico(anda);
 
-  $('a-card-editori').classList.toggle('hidden', !!an.editore);
-  $('a-editori').innerHTML = tabella(['Editore', 'Titoli', 'Fornite', 'Rese', 'Resa', 'Netto'], editori.map(e => ({
+  // Tabella editori: solo quelli del filtro; nascosta quando se ne guarda uno solo
+  const righeEd = editoriFiltrati();
+  $('a-card-editori').classList.toggle('hidden', righeEd.length <= 1 && !!filtroEditori());
+  $('a-editori').innerHTML = righeEd.length ? tabella(['Editore', 'Account', 'Titoli', 'Fornite', 'Rese', 'Resa', 'Netto'], righeEd.map(e => ({
     attr: `data-editore="${esc(e.editore)}"`,
-    celle: [esc(e.editore), fmtN(e.titoli), fmtN(e.copie_f), fmtN(e.copie_r), fmtPerc(e.copie_r, e.copie_f), fmtEuro(e.netto_f - e.netto_r)],
-  })));
+    celle: [esc(e.editore), `<span class="muto">${esc(e.account || '—')}</span>`, fmtN(e.titoli), fmtN(e.copie_f), fmtN(e.copie_r), fmtPerc(e.copie_r, e.copie_f), fmtEuro(e.netto_f - e.netto_r)],
+  })), 2) : '<p class="nota">Nessun editore nel periodo con questi filtri.</p>';
   $('a-editori').querySelectorAll('[data-editore]').forEach(tr => tr.onclick = () => {
-    an.editore = tr.dataset.editore; an.ean = null; aggiornaAnalisi(); window.scrollTo({ top: 0, behavior: 'smooth' });
+    an.sel = new Set([tr.dataset.editore]); an.ean = null; aggiornaAnalisi(); window.scrollTo({ top: 0, behavior: 'smooth' });
   });
-  $('a-titolo-titoli').textContent = nomeEd ? `Titoli di ${nomeEd}` : 'Titoli';
+  $('a-titolo-titoli').textContent = nomeEd ? `Titoli · ${nomeEd}` : 'Titoli';
   await caricaTitoli();
 }
 
 async function caricaTitoli(){
   const n = an.richiesta;
-  const titoli = await rpc('msg_analisi_titoli', { p_da: $('a-da').value, p_a: $('a-a').value, p_editore: an.editore, p_cerca: $('a-cerca').value.trim() || null, p_limite: 300 });
+  const titoli = await rpc('msg_analisi_titoli', { p_da: $('a-da').value, p_a: $('a-a').value, p_editori: filtroEditori(), p_cerca: $('a-cerca').value.trim() || null, p_limite: 300 });
   if (n !== an.richiesta) return;
   $('a-titoli').innerHTML = titoli.length ? tabella(['Titolo', 'EAN', 'Editore', 'Collana', 'Prezzo', 'Fornite', 'Rese', 'Resa', 'Netto'], titoli.map(t => ({
     attr: `data-ean="${esc(t.ean)}" data-titolo="${esc(t.titolo)}"`,
@@ -454,6 +507,73 @@ async function caricaTitoli(){
   $('a-titoli').querySelectorAll('[data-ean]').forEach(tr => tr.onclick = () => {
     an.ean = tr.dataset.ean; an.titoloEan = tr.dataset.titolo; aggiornaAnalisi(); window.scrollTo({ top: 0, behavior: 'smooth' });
   });
+}
+
+/* Scelta multipla degli editori (dell'account scelto). Le spunte vanno in una bozza: la pagina
+   cambia solo con "Applica"; "Annulla", Esc o un clic fuori dal pannello le scartano. */
+function aggiornaBottoneEditori(){
+  const vis = editoriVisibili(), f = editoriFiltrati();
+  $('a-editori-btn').textContent = !an.sel || f.length === vis.length ? (an.account ? 'Tutti gli editori dell\'account' : 'Tutti gli editori')
+    : f.length === 1 ? f[0].editore : `${f.length} editori su ${vis.length}`;
+}
+
+function disegnaListaEditori(){
+  const cerca = $('a-editori-cerca').value.trim().toUpperCase();
+  const vis = editoriVisibili().slice().sort((x, y) => x.editore.localeCompare(y.editore, 'it'));
+  const mostrati = vis.filter(e => !cerca || e.editore.includes(cerca));
+  $('a-editori-lista').innerHTML = mostrati.length ? mostrati.map(e => `<label><input type="checkbox" data-ed="${esc(e.editore)}"${an.bozza.has(e.editore) ? ' checked' : ''}>
+    <span>${esc(e.editore)}</span><span class="acc">${esc(e.account || '')}</span></label>`).join('') : '<p class="nota" style="padding:6px 4px;">Nessun editore trovato.</p>';
+  $('a-editori-lista').querySelectorAll('[data-ed]').forEach(c => c.onchange = () => {
+    if (c.checked) an.bozza.add(c.dataset.ed); else an.bozza.delete(c.dataset.ed);
+    contaBozza();
+  });
+  contaBozza();
+  return mostrati;
+}
+
+function contaBozza(){
+  const vis = editoriVisibili(), scelti = vis.filter(e => an.bozza.has(e.editore)).length;
+  $('a-editori-conta').textContent = `${scelti} di ${vis.length} selezionati`;
+  $('a-editori-applica').disabled = !scelti;
+}
+
+function chiudiSceltaEditori(){
+  $('a-editori-pannello').classList.add('hidden');
+  $('a-editori-btn').setAttribute('aria-expanded', 'false');
+  an.bozza = null;
+}
+
+function preparaSceltaEditori(){
+  $('a-editori-btn').onclick = () => {
+    if (an.bozza) { chiudiSceltaEditori(); return; }
+    an.bozza = new Set(editoriFiltrati().map(e => e.editore));
+    $('a-editori-cerca').value = '';
+    $('a-editori-pannello').classList.remove('hidden');
+    $('a-editori-btn').setAttribute('aria-expanded', 'true');
+    disegnaListaEditori();
+    $('a-editori-cerca').focus();
+  };
+  $('a-editori-cerca').oninput = disegnaListaEditori;
+  // Con una ricerca attiva, "Seleziona/Deseleziona tutti" vale per gli editori mostrati
+  const tutti = aggiungi => {
+    const cerca = $('a-editori-cerca').value.trim().toUpperCase();
+    editoriVisibili().filter(e => !cerca || e.editore.includes(cerca))
+      .forEach(e => aggiungi ? an.bozza.add(e.editore) : an.bozza.delete(e.editore));
+    disegnaListaEditori();
+  };
+  $('a-editori-tutti').onclick = () => tutti(true);
+  $('a-editori-nessuno').onclick = () => tutti(false);
+  $('a-editori-annulla').onclick = chiudiSceltaEditori;
+  $('a-editori-applica').onclick = () => {
+    const vis = editoriVisibili().map(e => e.editore);
+    const scelti = vis.filter(n => an.bozza.has(n));
+    an.sel = scelti.length === vis.length ? null : new Set(scelti);
+    an.ean = null;
+    chiudiSceltaEditori();
+    aggiornaAnalisi();
+  };
+  document.addEventListener('mousedown', e => { if (an.bozza && !e.target.closest('.multi')) chiudiSceltaEditori(); });
+  document.addEventListener('keydown', e => { if (an.bozza && e.key === 'Escape') chiudiSceltaEditori(); });
 }
 
 // Tabella semplice: le prime nTesto colonne sono testo, le altre numeri allineati a destra
