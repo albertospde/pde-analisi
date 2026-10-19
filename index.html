@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PDE Analisi</title>
+<link rel="icon" type="image/png" href="logo/favicon-64.png">
+<!-- Logo condiviso delle app PDE (kit del PDE Hub) -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="https://albertospde.github.io/pde-hub/assets/pde-app-logo.css">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// Tema condiviso con il Hub e le altre app PDE (stessa origine → stessa chiave)
+(function () {
+  function applica(t) {
+    if (t === 'light') document.documentElement.setAttribute('data-theme', 'light');
+    else document.documentElement.removeAttribute('data-theme');
+  }
+  try { applica(localStorage.getItem('pde-hub-theme')); } catch (e) {}
+  window.setTheme = function (t) {
+    applica(t);
+    try { localStorage.setItem('pde-hub-theme', t); } catch (e) {}
+  };
+  window.addEventListener('storage', function (e) { if (e.key === 'pde-hub-theme') applica(e.newValue); });
+})();
+</script>
+<style>
+/* Tema scuro (predefinito, come il Hub) */
+:root{
+  --bg:#0b1128; --card:#121a42; --card-2:#18224f; --text:#e6e9f5; --muted:#8c93b8;
+  --border:rgba(255,255,255,.12); --blu:#2f7cf6; --blu-2:#005ce0; --ko:#ef5b5b;
+  --header:#070b22; --input:#0d1334; --shadow:0 8px 30px rgba(0,0,0,.35);
+  color-scheme:dark;
+}
+html[data-theme="light"]{
+  --bg:#eef2f9; --card:#ffffff; --card-2:#f4f7fc; --text:#0b1a3a; --muted:#5a6388;
+  --border:rgba(26,45,107,.16); --blu:#005ce0; --blu-2:#0049b8; --ko:#c62828;
+  --header:#ffffff; --input:#ffffff; --shadow:0 8px 30px rgba(26,45,107,.12);
+  color-scheme:light;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',-apple-system,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.45;min-height:100vh;}
+button,input{font:inherit;color:inherit;}
+a{color:var(--blu);}
+.muted{color:var(--muted);}
+.hidden{display:none !important;}
+
+/* ── Header ── */
+header{background:var(--header);border-bottom:1px solid var(--border);padding:10px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:20;}
+/* I colori del logo PDE sono pensati per il bianco: sempre dentro un riquadro bianco */
+.logo-box{background:#fff;border-radius:8px;padding:5px 12px;display:inline-flex;align-items:center;}
+html[data-theme="light"] header .logo-box{padding-left:0;}
+.hdr-right{margin-left:auto;display:flex;align-items:center;gap:10px;}
+.theme-switch{display:flex;gap:2px;background:var(--card-2);border:1px solid var(--border);border-radius:6px;padding:2px;}
+.theme-opt{background:transparent;border:none;border-radius:4px;color:var(--muted);font-size:12px;padding:4px 10px;cursor:pointer;}
+html:not([data-theme="light"]) .theme-opt[data-set="dark"],html[data-theme="light"] .theme-opt[data-set="light"]{color:var(--text);background:var(--card);}
+.user-chip{font-size:12px;color:var(--muted);}
+
+main{max-width:1320px;margin:0 auto;padding:22px 24px 60px;}
+.empty{text-align:center;color:var(--muted);padding:80px 10px;}
+.empty .big{font-size:40px;margin-bottom:10px;}
+
+.field{display:flex;flex-direction:column;gap:4px;margin-bottom:12px;}
+.field label{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);}
+input[type=email],input[type=password]{background:var(--input);border:1px solid var(--border);border-radius:7px;padding:8px 10px;width:100%;}
+input:focus{outline:none;border-color:var(--blu);}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid transparent;border-radius:8px;padding:8px 14px;cursor:pointer;font-weight:600;white-space:nowrap;}
+.btn:disabled{opacity:.5;cursor:not-allowed;}
+.btn-primary{background:var(--blu);color:#fff;}
+.btn-primary:hover:not(:disabled){background:var(--blu-2);}
+.btn-sec{background:var(--card-2);border-color:var(--border);}
+.btn-sec:hover{border-color:var(--blu);}
+.btn-sm{padding:5px 10px;font-size:12px;}
+.err{color:var(--ko);font-weight:600;font-size:13px;min-height:18px;}
+
+/* ── Login ── */
+.login{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:100;padding:16px;}
+.login-box{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:32px;width:400px;max-width:100%;box-shadow:var(--shadow);}
+.login-logo{display:flex;justify-content:center;margin-bottom:22px;padding:14px;}
+
+@media (max-width:760px){
+  header{flex-wrap:wrap;padding:10px 16px;}
+  main{padding:16px;}
+  .user-chip{display:none;}
+}
+</style>
+</head>
+<body>
+
+<!-- ── LOGIN (sessione condivisa con PDE Hub) ── -->
+<div class="login hidden" id="login">
+  <div class="login-box">
+    <div class="logo-box login-logo"><div class="pde-logo" style="font-size:26px" role="img" aria-label="PDE Analisi"><div class="pl-text"><div class="pl-name"><b>PDE</b><span>ANALISI</span></div><div class="pl-tag"><i class="c0">RACCOGLI.</i><em>I</em><i class="c1">ANALIZZA.</i><em>I</em><i class="c2">DECIDI.</i></div></div><div class="pl-wing"></div></div></div>
+    <div class="field"><label for="login-email">Email</label><input type="email" id="login-email" placeholder="nome@pde.it" autocomplete="username"></div>
+    <div class="field"><label for="login-pw">Password</label><input type="password" id="login-pw" autocomplete="current-password"></div>
+    <div class="err" id="login-err"></div>
+    <button class="btn btn-primary" style="width:100%;margin-top:6px;" id="login-btn">Accedi</button>
+  </div>
+</div>
+
+<header>
+  <div class="logo-box"><div class="pde-logo" style="font-size:16px" role="img" aria-label="PDE Analisi"><div class="pl-text"><div class="pl-name"><b>PDE</b><span>ANALISI</span></div><div class="pl-tag"><i class="c0">RACCOGLI.</i><em>I</em><i class="c1">ANALIZZA.</i><em>I</em><i class="c2">DECIDI.</i></div></div><div class="pl-wing"></div></div></div>
+  <div class="hdr-right">
+    <div class="theme-switch" role="group" aria-label="Tema">
+      <button class="theme-opt" data-set="dark" onclick="setTheme('dark')">Scuro</button>
+      <button class="theme-opt" data-set="light" onclick="setTheme('light')">Chiaro</button>
+    </div>
+    <span class="user-chip" id="user-chip"></span>
+    <button class="btn btn-sec btn-sm" id="logout-btn">Esci</button>
+  </div>
+</header>
+
+<main id="main">
+  <!-- Schermata vuota: qui arriveranno le analisi sui dati Messaggerie -->
+  <div class="empty">
+    <div class="big">📊</div>
+    <p>Le analisi arriveranno qui.</p>
+  </div>
+</main>
+
+<script>
+/* ═════════ CONFIG — stesso progetto Supabase "presenze" delle altre app PDE ═════════ */
+const SUPABASE_URL = 'https://tdflwenlylhctxssatax.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRkZmx3ZW5seWxoY3R4c3NhdGF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzMzgyNzYsImV4cCI6MjA5MTkxNDI3Nn0.l35qEL7LOvyYuI1McQlVqj4vbyTqmlevcmqWbTGYi2Q';
+const HUB_URL = 'https://albertospde.github.io/pde-hub/';
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const $ = id => document.getElementById(id);
+
+/* ═════════ ACCESSO ═════════ */
+async function avvia(){
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) { $('login').classList.remove('hidden'); return; }
+  // Accesso riservato agli amministratori PDE (stesso controllo delle policy RLS sui dati)
+  const { data: admin } = await sb.rpc('_is_admin_pde');
+  if (admin !== true) {
+    document.body.innerHTML = `<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;text-align:center;padding:20px;">
+      <div><div style="font-size:48px;margin-bottom:16px;">🔒</div><h2 style="margin-bottom:8px;">Accesso non autorizzato</h2>
+      <p class="muted" style="margin-bottom:24px;">Non hai i permessi per accedere a questa applicazione.</p>
+      <a class="btn btn-primary" href="${HUB_URL}">← Torna a PDE Hub</a></div></div>`;
+    return;
+  }
+  $('login').classList.add('hidden');
+  $('user-chip').textContent = session.user.email;
+}
+$('login-btn').onclick = async () => {
+  const email = $('login-email').value.trim(), password = $('login-pw').value;
+  $('login-err').textContent = '';
+  if (!email || !password) { $('login-err').textContent = 'Inserisci email e password.'; return; }
+  $('login-btn').disabled = true;
+  const { error } = await sb.auth.signInWithPassword({ email, password });
+  $('login-btn').disabled = false;
+  if (error) { $('login-err').textContent = 'Credenziali non valide.'; return; }
+  avvia();
+};
+$('login-pw').addEventListener('keydown', e => { if (e.key === 'Enter') $('login-btn').click(); });
+// Logout solo locale: non disconnette Hub e altre app PDE che condividono la sessione
+$('logout-btn').onclick = async () => { await sb.auth.signOut({ scope: 'local' }); location.reload(); };
+
+avvia();
+</script>
+</body>
+</html>
