@@ -161,6 +161,7 @@ td.ko{color:var(--ko);}
         <div class="field"><label for="s-password">Password</label><input type="password" id="s-password" autocomplete="new-password"></div>
         <div class="field"><label for="s-cartella">Cartella sul server</label><input type="text" id="s-cartella"></div>
         <div class="field"><label for="s-giorni">Considera file degli ultimi (giorni)</label><input type="number" id="s-giorni" min="1"></div>
+        <div class="field"><label for="s-filtro">Scarica solo i file che iniziano con</label><input type="text" id="s-filtro" placeholder="es. PPSV (più prefissi separati da virgola; vuoto = tutti)"></div>
       </div>
       <label class="check"><input type="checkbox" id="s-auto"> Download automatico ogni mattina dalle 5:30 (se il file non c'è ancora riprova ogni 15 minuti fino alle 6:30)</label>
       <div class="nota" id="s-impronta"></div>
@@ -242,8 +243,15 @@ function esitoSftp(ok, testo){
 async function chiamaSftp(azione){
   const { data, error } = await sb.functions.invoke('sftp-messaggerie', { body: { azione } });
   if (error) {
-    const body = await error.context?.json?.().catch(() => null);
-    throw new Error(body?.error || error.message);
+    const stato = error.context?.status;
+    const body = await error.context?.clone?.().json().catch(() => null);
+    // 546/504: il runtime ha fermato la funzione (limite di CPU o di tempo) a metà di un file
+    const msg = body?.error || (stato === 546 || stato === 504
+      ? 'Il download di un file è stato interrotto perché troppo pesante.'
+      : `Errore del servizio (${stato || error.message}).`);
+    const err = new Error(msg);
+    err.interrotto = !body?.error && (stato === 546 || stato === 504);
+    throw err;
   }
   return data;
 }
@@ -259,6 +267,7 @@ async function caricaSftp(){
   if (!sftpCaricato) {
     $('s-host').value = c.host; $('s-porta').value = c.porta; $('s-utente').value = c.utente;
     $('s-cartella').value = c.cartella_remota; $('s-giorni').value = c.giorni_indietro; $('s-auto').checked = c.automatico;
+    $('s-filtro').value = c.filtro_nome ?? '';
     sftpCaricato = true;
   }
   $('s-password').placeholder = c.password_secret_id ? '•••••••• (salvata)' : 'non ancora inserita';
@@ -314,6 +323,7 @@ $('s-salva').onclick = () => conBottone('s-salva', 'Salvataggio…', async () =>
     p_host: $('s-host').value, p_porta: Number($('s-porta').value) || 22, p_utente: $('s-utente').value,
     p_password: $('s-password').value || null, p_cartella_remota: $('s-cartella').value,
     p_giorni_indietro: Number($('s-giorni').value) || 7, p_automatico: $('s-auto').checked,
+    p_filtro_nome: $('s-filtro').value,
   });
   if (error) { esitoSftp(false, error.message); return; }
   $('s-password').value = '';
@@ -326,23 +336,45 @@ $('s-prova').onclick = () => conBottone('s-prova', 'Connessione…', async () =>
   try {
     const r = await chiamaSftp('prova');
     esitoSftp(true, `Connessione riuscita: ${r.totale} file in ${$('s-cartella').value}.`);
-    $('s-remoto').innerHTML = `<h2>📂 File sul server (${r.totale})</h2><div class="tbl-wrap"><table>
-      <tr><th>Nome</th><th class="num">Dimensione</th><th>Modificato</th></tr>
-      ${r.file.map(f => `<tr><td>${esc(f.nome)}</td><td class="num">${fmtDim(f.dimensione)}</td><td>${fmtDataOra(f.modificato)}</td></tr>`).join('')}
+    const nFiltro = r.file.filter(f => f.filtro).length;
+    $('s-remoto').innerHTML = `<h2>📂 File sul server (${r.totale})</h2>
+      <p class="sub">In evidenza i ${nFiltro} file che passano il filtro: sono gli unici che verranno scaricati.</p>
+      <div class="tbl-wrap"><table>
+      <tr><th>Nome</th><th class="num">Dimensione</th><th>Modificato</th><th>Filtro</th></tr>
+      ${r.file.map(f => `<tr style="${f.filtro ? '' : 'opacity:.45;'}"><td>${esc(f.nome)}</td><td class="num">${fmtDim(f.dimensione)}</td><td>${fmtDataOra(f.modificato)}</td>
+        <td>${f.filtro ? '✓ si scarica' : 'escluso'}</td></tr>`).join('')}
     </table></div>`;
     $('s-remoto').classList.remove('hidden');
   } catch (e) { esitoSftp(false, e.message); }
   await caricaSftp();
 });
 
+// La funzione scarica un file per chiamata: si richiama finché ne restano.
+// Un'interruzione (file troppo pesante) si riprova: dopo 2 la funzione salta quel file da sola.
 $('s-scarica').onclick = () => conBottone('s-scarica', 'Download in corso…', async () => {
   esitoSftp(true, '');
-  try {
-    const r = await chiamaSftp('scarica');
-    esitoSftp(true, r.scaricati.length
-      ? `Scaricati ${r.scaricati.length} file: ${r.scaricati.map(s => s.nome).join(', ')}${r.rimandati ? ` (altri ${r.rimandati} al prossimo giro)` : ''}`
-      : 'Nessun file nuovo da scaricare.');
-  } catch (e) { esitoSftp(false, e.message); }
+  const fatti = [];
+  let saltati = [], interruzioni = 0;
+  for (let giro = 0; giro < 60; giro++) {
+    try {
+      const r = await chiamaSftp('scarica');
+      fatti.push(...r.scaricati.map(s => s.nome));
+      saltati = r.saltati || [];
+      interruzioni = 0;
+      if (!r.scaricati.length || !r.rimanenti) break;
+      $('s-scarica').textContent = `Scaricati ${fatti.length}, ne restano ${r.rimanenti}…`;
+      await caricaSftp();
+    } catch (e) {
+      if (e.interrotto && ++interruzioni <= 2) { $('s-scarica').textContent = 'File pesante, riprovo…'; continue; }
+      esitoSftp(false, fatti.length ? `Scaricati ${fatti.length} file, poi: ${e.message}` : e.message);
+      await caricaSftp();
+      return;
+    }
+  }
+  const nota = saltati.length ? ` Saltati perché troppo pesanti: ${saltati.join(', ')}.` : '';
+  esitoSftp(!saltati.length || fatti.length > 0, fatti.length
+    ? `Scaricati ${fatti.length} file: ${fatti.join(', ')}.${nota}`
+    : `Nessun file nuovo da scaricare.${nota}`);
   await caricaSftp();
 });
 
