@@ -205,8 +205,13 @@ td.muto{color:var(--muted);}
           <option value="tutto">Tutto</option>
           <option value="libero">Date a scelta</option>
         </select></div>
+      <div class="field"><label for="a-mese">Mese</label><select id="a-mese"><option value="">—</option></select></div>
       <div class="field"><label for="a-da">Dal</label><input type="date" id="a-da"></div>
       <div class="field"><label for="a-a">Al</label><input type="date" id="a-a"></div>
+      <div class="field" style="min-width:160px;"><label for="a-mov">Movimento</label>
+        <select id="a-mov"><option value="FR">Fornito e reso</option><option value="F">Solo fornito</option><option value="R">Solo reso</option></select></div>
+      <div class="field" style="min-width:140px;"><label for="a-importo">Importo</label>
+        <select id="a-importo"><option value="netto">Netto</option><option value="lordo">Lordo</option><option value="entrambi">Netto e lordo</option></select></div>
       <div class="field"><label for="a-grana">Raggruppa per</label>
         <select id="a-grana"><option value="giorno">Giorno</option><option value="settimana">Settimana</option><option value="mese">Mese</option></select></div>
       <div class="field" style="min-width:180px;"><label for="a-account">Account editore</label><select id="a-account"><option value="">Tutti gli account</option></select></div>
@@ -226,15 +231,10 @@ td.muto{color:var(--muted);}
     <div id="a-chip"></div>
     <div id="a-vuoto" class="empty hidden"><div class="big">📊</div><p>Nessun dato importato. Importa i file PPSVMAGG da <a href="#sftp" id="a-vai-sftp">SFTP Messaggerie</a>.</p></div>
     <div id="a-contenuto">
-      <div class="kpi-riga">
-        <div class="kpi"><div class="kpi-l">Copie fornite</div><div class="kpi-n" id="k-f">—</div></div>
-        <div class="kpi"><div class="kpi-l">Copie rese</div><div class="kpi-n" id="k-r">—</div></div>
-        <div class="kpi"><div class="kpi-l">Resa</div><div class="kpi-n" id="k-resa">—</div><div class="kpi-s">rese su fornite</div></div>
-        <div class="kpi"><div class="kpi-l">Netto (fornito − reso)</div><div class="kpi-n" id="k-netto">—</div></div>
-      </div>
+      <div class="kpi-riga" id="a-kpi"></div>
       <div class="card">
         <div class="viz-testa"><h2 id="a-titolo-grafico">Copie fornite e rese</h2>
-          <div class="legenda"><span><i style="background:var(--serie-1)"></i>Fornite</span><span><i style="background:var(--serie-2)"></i>Rese</span></div></div>
+          <div class="legenda" id="a-legenda"></div></div>
         <div id="a-grafico" class="grafico"></div>
       </div>
       <div class="card" id="a-card-editori">
@@ -244,7 +244,7 @@ td.muto{color:var(--muted);}
       </div>
       <div class="card">
         <h2 id="a-titolo-titoli">Titoli</h2>
-        <p class="sub">I primi 300 per netto. Clic su un titolo per vederne l'andamento.</p>
+        <p class="sub" id="a-sub-titoli">I primi 300. Clic su un titolo per vederne l'andamento.</p>
         <div id="a-titoli"></div>
       </div>
     </div>
@@ -410,12 +410,61 @@ const isoGiorno = d => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toI
 const piuGiorni = (iso, n) => { const d = new Date(iso + 'T12:00:00'); d.setDate(d.getDate() + n); return isoGiorno(d); };
 const fmtGiorno = iso => new Date(iso + 'T12:00:00').toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: '2-digit' });
 const fmtPerc = (r, f) => f > 0 ? (r / f * 100).toLocaleString('it-IT', { maximumFractionDigits: 1 }) + '%' : '—';
+const fmtEuro0 = n => Number(n).toLocaleString('it-IT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
+const fineMese = mese => isoGiorno(new Date(Number(mese.slice(0, 4)), Number(mese.slice(5, 7)), 0));
+
+/* Movimento (F, R o FR = entrambi, separati) e importo (netto, lordo o entrambi) scelti nei filtri.
+   Lordo = copie × prezzo di copertina (come Tableau); netto = importo dopo gli sconti ai clienti. */
+const movScelto = () => $('a-mov').value;
+const importiScelti = () => $('a-importo').value === 'entrambi' ? ['lordo', 'netto'] : [$('a-importo').value];
+const NOME_IMPORTO = { lordo: 'Lordo', netto: 'Netto' };
+// Colonne / indicatori per un oggetto con copie_f, copie_r, netto_f, netto_r, lordo_f, lordo_r
+function valori(x){
+  const m = movScelto(), F = m !== 'R', R = m !== 'F', v = [];
+  if (F) v.push({ l: 'Fornite', n: fmtN(x.copie_f), k: 'Copie fornite' });
+  if (R) v.push({ l: 'Rese', n: fmtN(x.copie_r), k: 'Copie rese' });
+  if (F && R) v.push({ l: 'Resa', n: fmtPerc(Number(x.copie_r), Number(x.copie_f)), k: 'Resa', s: 'rese su fornite' });
+  importiScelti().forEach(t => {
+    const f = Number(x[t + '_f']), r = Number(x[t + '_r']), nome = NOME_IMPORTO[t];
+    if (F) v.push({ l: `${nome} fornito`, e: f });
+    if (R) v.push({ l: `${nome} reso`, e: r });
+    if (F && R) v.push({ l: `${nome} F − R`, e: f - r, k: `${nome} (fornito − reso)` });
+  });
+  return v;
+}
+// Importo su cui ordinare: il primo scelto, sul movimento scelto (FR = fornito − reso)
+const chiaveOrdine = () => importiScelti()[0] + ({ F: '_f', R: '_r', FR: '' })[movScelto()];
+const valoreOrdine = x => { const t = importiScelti()[0], m = movScelto();
+  return m === 'F' ? Number(x[t + '_f']) : m === 'R' ? Number(x[t + '_r']) : Number(x[t + '_f']) - Number(x[t + '_r']); };
+
+// Mesi con dati, dal più recente; l'ultimo arriva fino all'ultimo giorno importato
+function preparaMesi(){
+  const mesi = [];
+  for (let m = an.periodo.al.slice(0, 7); m >= an.periodo.dal.slice(0, 7); m = piuGiorni(m + '-01', -1).slice(0, 7)) mesi.push(m);
+  const scelto = $('a-mese').value;
+  $('a-mese').innerHTML = '<option value="">—</option>' + mesi.map(m => {
+    const nome = new Date(m + '-01T12:00:00').toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
+    const parziale = fineMese(m) > an.periodo.al ? ` (fino al ${fmtGiorno(an.periodo.al)})` : '';
+    return `<option value="${m}"${m === scelto ? ' selected' : ''}>${nome}${parziale}</option>`;
+  }).join('');
+}
+function applicaMese(){
+  const m = $('a-mese').value;
+  if (!m) return;
+  $('a-da').value = m + '-01' < an.periodo.dal ? an.periodo.dal : m + '-01';
+  $('a-a').value = fineMese(m) > an.periodo.al ? an.periodo.al : fineMese(m);
+}
 
 async function avviaAnalisi(){
   if (!an.pronto) {
     an.pronto = true;
-    $('a-periodo').onchange = () => { applicaPeriodo(); aggiornaAnalisi(); };
-    $('a-da').onchange = $('a-a').onchange = () => { $('a-periodo').value = 'libero'; aggiornaAnalisi(); };
+    $('a-periodo').onchange = () => { $('a-mese').value = ''; applicaPeriodo(); aggiornaAnalisi(); };
+    $('a-mese').onchange = () => { if ($('a-mese').value) { $('a-periodo').value = 'libero'; applicaMese(); aggiornaAnalisi(); } };
+    // Dal dopo Al (o Al prima di Dal): l'altra data segue quella appena scelta
+    $('a-da').onchange = () => { if ($('a-da').value > $('a-a').value) $('a-a').value = $('a-da').value; dateCambiate(); };
+    $('a-a').onchange = () => { if ($('a-a').value < $('a-da').value) $('a-da').value = $('a-a').value; dateCambiate(); };
+    const dateCambiate = () => { $('a-periodo').value = 'libero'; $('a-mese').value = ''; aggiornaAnalisi(); };
+    $('a-mov').onchange = $('a-importo').onchange = aggiornaAnalisi;
     $('a-grana').onchange = aggiornaAnalisi;
     $('a-account').onchange = () => { an.account = $('a-account').value || null; an.sel = null; an.ean = null; aggiornaAnalisi(); };
     preparaSceltaEditori();
@@ -429,7 +478,11 @@ async function avviaAnalisi(){
   $('a-vuoto').classList.toggle('hidden', !!an.periodo);
   $('a-contenuto').classList.toggle('hidden', !an.periodo);
   if (!an.periodo) return;
-  if (!$('a-da').value) applicaPeriodo();
+  $('a-da').min = $('a-a').min = an.periodo.dal;
+  $('a-da').max = $('a-a').max = an.periodo.al;
+  preparaMesi();
+  // Con un mese o una scorciatoia scelti, i nuovi file importati allungano il periodo
+  if ($('a-mese').value) applicaMese(); else applicaPeriodo();
   await aggiornaAnalisi();
 }
 
@@ -473,21 +526,23 @@ async function aggiornaAnalisi(){
     an.ean = null; aggiornaAnalisi();
   });
 
-  const tot = anda.reduce((s, x) => ({ f: s.f + Number(x.copie_f), r: s.r + Number(x.copie_r), nf: s.nf + Number(x.netto_f), nr: s.nr + Number(x.netto_r) }), { f: 0, r: 0, nf: 0, nr: 0 });
-  $('k-f').textContent = fmtN(tot.f);
-  $('k-r').textContent = fmtN(tot.r);
-  $('k-resa').textContent = fmtPerc(tot.r, tot.f);
-  $('k-netto').textContent = (tot.nf - tot.nr).toLocaleString('it-IT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
-  $('a-titolo-grafico').textContent = `Copie fornite e rese${an.ean ? ' · ' + (an.titoloEan || an.ean) : nomeEd ? ' · ' + nomeEd : ''}`;
+  const tot = { copie_f: 0, copie_r: 0, netto_f: 0, netto_r: 0, lordo_f: 0, lordo_r: 0 };
+  anda.forEach(x => Object.keys(tot).forEach(k => tot[k] += Number(x[k])));
+  $('a-kpi').innerHTML = valori(tot).map(v => `<div class="kpi"><div class="kpi-l">${esc(v.k || v.l)}</div>
+    <div class="kpi-n">${v.e != null ? fmtEuro0(v.e) : v.n}</div>${v.s ? `<div class="kpi-s">${v.s}</div>` : ''}</div>`).join('');
+  const mov = movScelto();
+  $('a-titolo-grafico').textContent = `Copie ${mov === 'F' ? 'fornite' : mov === 'R' ? 'rese' : 'fornite e rese'}${an.ean ? ' · ' + (an.titoloEan || an.ean) : nomeEd ? ' · ' + nomeEd : ''}`;
+  $('a-legenda').innerHTML = (mov !== 'R' ? '<span><i style="background:var(--serie-1)"></i>Fornite</span>' : '')
+    + (mov !== 'F' ? '<span><i style="background:var(--serie-2)"></i>Rese</span>' : '');
   an.serie = anda;
   disegnaGrafico(anda);
 
   // Tabella editori: solo quelli del filtro; nascosta quando se ne guarda uno solo
-  const righeEd = editoriFiltrati();
+  const righeEd = editoriFiltrati().slice().sort((x, y) => valoreOrdine(y) - valoreOrdine(x));
   $('a-card-editori').classList.toggle('hidden', righeEd.length <= 1 && !!filtroEditori());
-  $('a-editori').innerHTML = righeEd.length ? tabella(['Editore', 'Account', 'Titoli', 'Fornite', 'Rese', 'Resa', 'Netto'], righeEd.map(e => ({
+  $('a-editori').innerHTML = righeEd.length ? tabella(['Editore', 'Account', 'Titoli', ...valori(tot).map(v => v.l)], righeEd.map(e => ({
     attr: `data-editore="${esc(e.editore)}"`,
-    celle: [esc(e.editore), `<span class="muto">${esc(e.account || '—')}</span>`, fmtN(e.titoli), fmtN(e.copie_f), fmtN(e.copie_r), fmtPerc(e.copie_r, e.copie_f), fmtEuro(e.netto_f - e.netto_r)],
+    celle: [esc(e.editore), `<span class="muto">${esc(e.account || '—')}</span>`, fmtN(e.titoli), ...valori(e).map(v => v.e != null ? fmtEuro(v.e) : v.n)],
   })), 2) : '<p class="nota">Nessun editore nel periodo con questi filtri.</p>';
   $('a-editori').querySelectorAll('[data-editore]').forEach(tr => tr.onclick = () => {
     an.sel = new Set([tr.dataset.editore]); an.ean = null; aggiornaAnalisi(); window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -498,11 +553,13 @@ async function aggiornaAnalisi(){
 
 async function caricaTitoli(){
   const n = an.richiesta;
-  const titoli = await rpc('msg_analisi_titoli', { p_da: $('a-da').value, p_a: $('a-a').value, p_editori: filtroEditori(), p_cerca: $('a-cerca').value.trim() || null, p_limite: 300 });
+  const titoli = await rpc('msg_analisi_titoli', { p_da: $('a-da').value, p_a: $('a-a').value, p_editori: filtroEditori(), p_cerca: $('a-cerca').value.trim() || null, p_limite: 300, p_ordine: chiaveOrdine() });
   if (n !== an.richiesta) return;
-  $('a-titoli').innerHTML = titoli.length ? tabella(['Titolo', 'EAN', 'Editore', 'Collana', 'Prezzo', 'Fornite', 'Rese', 'Resa', 'Netto'], titoli.map(t => ({
+  const t0 = importiScelti()[0], m = movScelto();
+  $('a-sub-titoli').textContent = `I primi 300 per ${t0} ${m === 'F' ? 'fornito' : m === 'R' ? 'reso' : '(fornito − reso)'}. Clic su un titolo per vederne l'andamento.`;
+  $('a-titoli').innerHTML = titoli.length ? tabella(['Titolo', 'EAN', 'Editore', 'Collana', 'Prezzo', ...valori(titoli[0]).map(v => v.l)], titoli.map(t => ({
     attr: `data-ean="${esc(t.ean)}" data-titolo="${esc(t.titolo)}"`,
-    celle: [esc(t.titolo), `<span class="muto">${esc(t.ean)}</span>`, esc(t.editore), `<span class="muto">${esc(t.collana)}</span>`, fmtEuro(t.prezzo), fmtN(t.copie_f), fmtN(t.copie_r), fmtPerc(t.copie_r, t.copie_f), fmtEuro(t.netto_f - t.netto_r)],
+    celle: [esc(t.titolo), `<span class="muto">${esc(t.ean)}</span>`, esc(t.editore), `<span class="muto">${esc(t.collana)}</span>`, fmtEuro(t.prezzo), ...valori(t).map(v => v.e != null ? fmtEuro(v.e) : v.n)],
   })), 4) : '<p class="nota">Nessun titolo nel periodo con questi filtri.</p>';
   $('a-titoli').querySelectorAll('[data-ean]').forEach(tr => tr.onclick = () => {
     an.ean = tr.dataset.ean; an.titoloEan = tr.dataset.titolo; aggiornaAnalisi(); window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -594,13 +651,15 @@ function disegnaGrafico(dati){
   const W = box.clientWidth || 600, H = box.clientHeight || 280;
   const m = { s: 56, d: 8, a: 10, b: 26 };
   const w = W - m.s - m.d, h = H - m.a - m.b;
-  const max = Math.max(1, ...dati.map(x => Math.max(Number(x.copie_f), Number(x.copie_r))));
+  const mov = movScelto(), conF = mov !== 'R', conR = mov !== 'F';
+  const max = Math.max(1, ...dati.map(x => Math.max(conF ? Number(x.copie_f) : 0, conR ? Number(x.copie_r) : 0)));
   const passo = Math.pow(10, Math.floor(Math.log10(max)));
   const tacca = [1, 2, 2.5, 5, 10].map(k => k * passo).find(t => max / t <= 5) || passo * 10;
   const top = Math.ceil(max / tacca) * tacca;
   const y = v => m.a + h - v / top * h;
   const banda = w / dati.length;
-  const larg = Math.max(1, Math.min(28, (banda - 8) / 2 - 1));
+  const due = conF && conR;
+  const larg = Math.max(1, Math.min(28, due ? (banda - 8) / 2 - 1 : banda - 8));
   const ns = 'http://www.w3.org/2000/svg';
   const svg = document.createElementNS(ns, 'svg');
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
@@ -620,7 +679,8 @@ function disegnaGrafico(dati){
   const ogni = Math.max(1, Math.ceil(dati.length / Math.floor(w / 64)));
   dati.forEach((d, i) => {
     const cx = m.s + banda * i + banda / 2;
-    html += barra(cx - larg - 1, Number(d.copie_f), 'var(--serie-1)') + barra(cx + 1, Number(d.copie_r), 'var(--serie-2)');
+    html += due ? barra(cx - larg - 1, Number(d.copie_f), 'var(--serie-1)') + barra(cx + 1, Number(d.copie_r), 'var(--serie-2)')
+      : barra(cx - larg / 2, Number(conF ? d.copie_f : d.copie_r), conF ? 'var(--serie-1)' : 'var(--serie-2)');
     if (i % ogni === 0) html += `<text class="asse" x="${cx}" y="${H - 8}" text-anchor="middle">${fmtGiorno(d.periodo)}</text>`;
     html += `<rect data-i="${i}" x="${m.s + banda * i}" y="${m.a}" width="${banda}" height="${h}" fill="transparent" />`;
   });
@@ -637,15 +697,17 @@ function disegnaGrafico(dati){
         : grana === 'settimana' ? `settimana dal ${fmtGiorno(d.periodo)}` : fmtGiorno(d.periodo);
       tip.replaceChildren();
       const t = document.createElement('div'); t.textContent = etich; t.style.marginBottom = '4px'; tip.appendChild(t);
-      [['Fornite', d.copie_f, 'var(--serie-1)'], ['Rese', d.copie_r, 'var(--serie-2)']].forEach(([nome, v, c]) => {
+      [conF && ['Fornite', d.copie_f, 'var(--serie-1)'], conR && ['Rese', d.copie_r, 'var(--serie-2)']].filter(Boolean).forEach(([nome, v, c]) => {
         const riga = document.createElement('div'); riga.className = 'tt-riga';
         const i = document.createElement('i'); i.style.background = c;
         const b = document.createElement('b'); b.textContent = fmtN(v);
         riga.append(i, b, document.createTextNode(' ' + nome.toLowerCase()));
         tip.appendChild(riga);
       });
-      const nt = document.createElement('div'); nt.style.marginTop = '4px';
-      nt.textContent = `Netto ${fmtEuro(Number(d.netto_f) - Number(d.netto_r))}`; tip.appendChild(nt);
+      valori(d).filter(v => v.e != null).forEach((v, k) => {
+        const nt = document.createElement('div'); if (!k) nt.style.marginTop = '4px';
+        nt.textContent = `${v.l} ${fmtEuro(v.e)}`; tip.appendChild(nt);
+      });
       tip.classList.remove('hidden');
       const bb = box.getBoundingClientRect();
       const px = ev.clientX - bb.left, tw = tip.offsetWidth;
