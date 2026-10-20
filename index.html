@@ -870,7 +870,7 @@ async function aggiornaDettaglio(n = ++an.richiesta){
     return `<div class="kpi"><div class="kpi-l">${esc(v.k || v.l)}</div>
       <div class="kpi-n">${v.e != null ? fmtEuro0(v.e) : v.n}</div>${v.s ? `<div class="kpi-s">${v.s}</div>` : ''}<div class="kpi-s">${confronto}</div></div>`;
   }).join('');
-  if (tipi) disegnaTipi(tipi, tipiPrima || [], date, prima); else $('a-tipi').innerHTML = TROPPO;
+  if (tipi) disegnaTipi(tipi, tipiPrima, date, prima); else $('a-tipi').innerHTML = TROPPO;
   if (clienti) disegnaClienti(clienti, tot); else $('a-clienti').innerHTML = TROPPO;
   an.elenco = editori || [];
   const nomeEd = descrizioneEditori(), quando = descrizioneSelezione();
@@ -897,7 +897,7 @@ const TIPI = [['lancio', 'Lanci', 'var(--tipo-lancio)'], ['novita', 'Riforniment
 function disegnaTipi(tipi, tipiPrima, date, prima){
   const t = importiScelti()[0], suReso = movScelto() === 'R', campo = `${t}_${suReso ? 'r' : 'f'}`;
   const valore = (righe, tipo) => Number(righe.find(r => r.tipo === tipo)?.[campo] || 0);
-  const ora = TIPI.map(([k]) => valore(tipi, k)), prec = TIPI.map(([k]) => valore(tipiPrima, k));
+  const ora = TIPI.map(([k]) => valore(tipi, k)), prec = TIPI.map(([k]) => valore(tipiPrima || [], k));
   const totOra = ora.reduce((a, b) => a + b, 0), totPrec = prec.reduce((a, b) => a + b, 0);
   const nomeMisura = `${NOME_IMPORTO[t]} ${suReso ? 'reso' : 'fornito'}`;
   $('a-titolo-tipi').textContent = 'Lanci e rifornimenti · ' + nomeMisura;
@@ -905,7 +905,7 @@ function disegnaTipi(tipi, tipiPrima, date, prima){
   const estremi = d => d.length ? (d.length === 1 ? fmtGiorno(d[0]) : `${fmtGiorno(d[0])} – ${fmtGiorno(d[d.length - 1])}`) : '';
   $('a-sub-tipi').textContent = `Confronto con le stesse date dell'anno precedente (${estremi(prima)}).`;
   const quota = (v, tot) => tot ? (v / tot * 100).toLocaleString('it-IT', { maximumFractionDigits: 1 }) + '%' : '—';
-  $('a-tipi').innerHTML = '<div class="torte-coppia">' + ciambella(ora, totOra, 'Anno corrente', estremi(date)) + ciambella(prec, totPrec, 'Anno precedente', totPrec ? estremi(prima) : 'nessun dato') + '</div>'
+  $('a-tipi').innerHTML = '<div class="torte-coppia">' + ciambella(ora, totOra, 'Anno corrente', estremi(date)) + ciambella(prec, totPrec, 'Anno precedente', totPrec ? estremi(prima) : tipiPrima ? 'nessun dato' : 'calcolo troppo pesante, riprova') + '</div>'
     + `<div class="tbl-wrap" style="max-height:none;"><table>
       <tr><th></th><th class="num">${esc(nomeMisura)}</th><th class="num">Quota</th><th class="num">Anno prec.</th><th class="num">Quota</th><th class="num">Variazione</th></tr>
       ${TIPI.map(([, nome, c], i) => `<tr data-i="${i}"><td style="white-space:nowrap"><i style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${c};margin-right:8px;"></i>${nome}</td>
