@@ -444,7 +444,8 @@ function giorniDaRegola(r){
   if (r?.mesi) return new Set(an.giorni.filter(g => r.mesi.includes(g.slice(0, 7))));
   return null;
 }
-const filtriIniziali = () => ({ date: giorniRapido('30'), regola: { rapido: '30' }, mov: new Set(['F', 'R']), imp: new Set(['netto']), grana: 'giorno', account: null, editori: null });
+// All'apertura: l'ultimo giorno importato, in lordo (come Tableau)
+const filtriIniziali = () => ({ date: giorniRapido('ultimo'), regola: { rapido: 'ultimo' }, mov: new Set(['F', 'R']), imp: new Set(['lordo']), grana: 'giorno', account: null, editori: null });
 const copiaFiltri = f => ({ ...f, date: new Set(f.date), mov: new Set(f.mov), imp: new Set(f.imp), account: f.account && new Set(f.account), editori: f.editori && new Set(f.editori) });
 
 // Editori ammessi da account ed editori scelti (f = filtri applicati o bozza)
