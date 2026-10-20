@@ -64,9 +64,11 @@ function leggiPpsvmagg(testo) {
         cap: campo(r, 173, 177), citta: campo(r, 178, 198), provincia: campo(r, 199, 200), partita_iva: campo(r, 201, 211) });
     } catch (e) { throw new Error(`riga ${i + 1}: ${e.message}`); }
   });
-  if (dichiarate === null) throw new Error("testata MA00 mancante: non sembra un file PPSVMAGG");
-  if (lette !== dichiarate) throw new Error(`la testata dichiara ${dichiarate} righe, lette ${lette}`);
+  // Gli storici scaricati con FileZilla non hanno testata né coda: righe non verificabili, data = ultimo giorno
+  if (dichiarate === null && !lette) throw new Error("nessuna riga MA00/MAMA: non sembra un file PPSVMAGG");
+  if (dichiarate !== null && lette !== dichiarate) throw new Error(`la testata dichiara ${dichiarate} righe, lette ${lette}`);
   const movimenti = [...mov.values()].map(x => ({ ...x, lordo: x.lordo / 100, netto: x.netto / 100 }));
+  if (dataFile === null) dataFile = movimenti.reduce((d, x) => x.data > d ? x.data : d, "");
   return { dataFile, righeFile: lette, movimenti, titoli: [...titoli.values()], clienti: [...clienti.values()], tot };
 }
 
