@@ -122,7 +122,6 @@ html[data-theme="light"]{ --serie-1:#2a78d6; --serie-2:#eb6834; --griglia:rgba(2
 .f-riepilogo{display:flex;flex-wrap:wrap;gap:6px;flex:1 1 300px;}
 .f-riepilogo .chip-filtro{margin:0;}
 .f-riepilogo .chip-filtro.semplice{padding:4px 12px;}
-.f-cerca{flex:0 1 260px;min-width:200px;}
 .pannello-filtri{padding:14px 16px;}
 .f-griglia{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px;}
 .f-box{border:1px solid var(--border);border-radius:10px;padding:10px 12px;background:var(--card-2);min-width:0;display:flex;flex-direction:column;gap:8px;}
@@ -191,6 +190,23 @@ html[data-theme="light"]{ --tipo-lancio:#2a78d6; --tipo-novita:#8a3fd1; --tipo-c
 .tooltip .tt-riga{display:flex;align-items:center;gap:6px;}
 .tooltip .tt-riga i{width:8px;height:8px;border-radius:2px;display:inline-block;}
 tr.cliccabile{cursor:pointer;}
+/* Classifiche (clienti, editori, titoli): posizione, nome con dettaglio sotto, dato principale con quota */
+.tab-strumenti{display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
+.cerca-mini{width:220px;max-width:100%;font-size:12px;padding:6px 10px 6px 28px;border-radius:8px;border:1px solid var(--border);background:var(--input) no-repeat 9px 50%/13px;color:var(--text);
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238c93b8' stroke-width='2.5' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E");}
+.classifica th{position:sticky;top:0;background:var(--card);z-index:1;}
+.classifica td{padding:7px 8px;}
+.classifica td.rk{width:1%;color:var(--muted);font-size:11px;text-align:right;font-variant-numeric:tabular-nums;}
+.classifica td:nth-child(2){min-width:220px;}
+.classifica .nm{font-weight:600;line-height:1.25;}
+.classifica .st{font-size:11px;color:var(--muted);margin-top:2px;font-weight:400;}
+.classifica td.princ{font-weight:700;white-space:nowrap;}
+.classifica td.qt{width:130px;min-width:110px;}
+.classifica .qt-b{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;}
+.classifica .qt-b span{flex:1;height:6px;border-radius:3px;background:var(--griglia);overflow:hidden;}
+.classifica .qt-b span i{display:block;height:100%;border-radius:3px;background:var(--serie-1);}
+.classifica td.sec{color:var(--muted);white-space:nowrap;}
+.classifica tr.nascosta{display:none;}
 tr.cliccabile:hover td{background:var(--card-2);}
 td.muto{color:var(--muted);}
 
@@ -245,7 +261,6 @@ td.muto{color:var(--muted);}
     <div class="filtri-barra">
       <button type="button" class="btn btn-sec" id="f-apri" aria-expanded="false" aria-controls="f-pannello">⚙ Filtri <span id="f-freccia">▾</span></button>
       <div id="f-riepilogo" class="f-riepilogo"></div>
-      <div class="f-cerca"><input type="text" id="a-cerca" placeholder="Cerca titolo o EAN…" aria-label="Cerca titolo o EAN"></div>
     </div>
     <div class="card pannello-filtri hidden" id="f-pannello">
       <div class="f-griglia">
@@ -300,17 +315,21 @@ td.muto{color:var(--muted);}
         <div class="torte" id="a-tipi"></div>
       </div>
       <div class="card" id="a-card-clienti">
-        <div class="viz-testa"><h2 id="a-titolo-clienti">Clienti</h2><div class="f-scelte" id="a-livello" role="group" aria-label="Livello"></div></div>
-        <p class="sub">Clic su una riga per filtrarla e scendere al livello sotto.</p>
+        <div class="viz-testa"><h2 id="a-titolo-clienti">Clienti</h2>
+          <div class="tab-strumenti"><div class="f-scelte" id="a-livello" role="group" aria-label="Livello"></div>
+            <input type="search" class="cerca-mini" id="a-cerca-clienti" placeholder="Cerca…" aria-label="Cerca nei clienti"></div></div>
+        <p class="sub"><span id="a-conta-clienti"></span>Clic su una riga per filtrarla e scendere al livello sotto.</p>
         <div id="a-clienti"></div>
       </div>
       <div class="card" id="a-card-editori">
-        <h2 id="a-titolo-editori">Editori</h2>
-        <p class="sub">Clic su un editore per vederne andamento e titoli.</p>
+        <div class="viz-testa"><h2 id="a-titolo-editori">Editori</h2>
+          <input type="search" class="cerca-mini" id="a-cerca-editori" placeholder="Cerca editore o account…" aria-label="Cerca negli editori"></div>
+        <p class="sub"><span id="a-conta-editori"></span>Clic su un editore per vederne andamento e titoli.</p>
         <div id="a-editori"></div>
       </div>
       <div class="card">
-        <h2 id="a-titolo-titoli">Titoli</h2>
+        <div class="viz-testa"><h2 id="a-titolo-titoli">Titoli</h2>
+          <input type="search" class="cerca-mini" id="a-cerca" placeholder="Cerca titolo o EAN…" aria-label="Cerca titolo o EAN"></div>
         <p class="sub" id="a-sub-titoli">I primi 300. Clic su un titolo per vederne l'andamento.</p>
         <div id="a-titoli"></div>
       </div>
@@ -863,6 +882,7 @@ async function aggiornaDettaglio(n = ++an.richiesta){
   if (n !== an.richiesta) return;
   const righe = an.selGrafico.size ? an.serie.filter(x => an.selGrafico.has(x.periodo)) : an.serie;
   const tot = somma(righe), totPrima = somma(andaPrima || []);
+  an.tot = tot;
   const conPrima = !!andaPrima?.length, vp = valori(totPrima);
   $('a-kpi').innerHTML = valori(tot).map((v, i) => {
     const p = vp[i], a = v.e ?? v.x, b = p.e ?? p.x;
@@ -879,10 +899,11 @@ async function aggiornaDettaglio(n = ++an.richiesta){
   const righeEd = editoriFiltrati().slice().sort((x, y) => valoreOrdine(y) - valoreOrdine(x));
   $('a-card-editori').classList.toggle('hidden', righeEd.length <= 1 && !!filtroEditori());
   $('a-titolo-editori').textContent = 'Editori' + (quando ? ' · ' + quando : '');
-  $('a-editori').innerHTML = righeEd.length ? tabella(['Editore', 'Account', 'Titoli', ...valori(tot).map(v => v.l)], righeEd.map(e => ({
-    attr: `data-editore="${esc(e.editore)}"`,
-    celle: [esc(e.editore), `<span class="muto">${esc(e.account || '—')}</span>`, fmtN(e.titoli), ...valori(e).map(v => v.e != null ? fmtEuro(v.e) : v.n)],
-  })), 2) : editori ? '<p class="nota">Nessun editore nel periodo con questi filtri.</p>' : TROPPO;
+  $('a-editori').innerHTML = righeEd.length ? classifica(righeEd, {
+    titolo: 'Editore', nome: e => e.editore, sotto: e => [e.account, `${fmtN(e.titoli)} titoli`].filter(Boolean).join(' · '),
+    attr: e => `data-editore="${esc(e.editore)}"`, totale: valoreOrdine(tot),
+  }) : editori ? '<p class="nota">Nessun editore nel periodo con questi filtri.</p>' : TROPPO;
+  collegaCerca('a-cerca-editori', 'a-editori', 'a-conta-editori', ['editore', 'editori']);
   $('a-editori').querySelectorAll('[data-editore]').forEach(tr => tr.onclick = () => {
     an.f.editori = new Set([tr.dataset.editore]); an.f.account = null; an.ean = null; aggiornaAnalisi(); window.scrollTo({ top: 0, behavior: 'smooth' });
   });
@@ -972,13 +993,13 @@ function disegnaClienti(righe, tot){
   const quando = descrizioneSelezione(), i = LIVELLI_TAB.findIndex(l => l[0] === an.livello), [, nome, k] = LIVELLI_TAB[i];
   $('a-titolo-clienti').textContent = 'Clienti per ' + nome.toLowerCase() + (quando ? ' · ' + quando : '');
   const ordinate = righe.slice().sort((x, y) => valoreOrdine(y) - valoreOrdine(x)).slice(0, 500);
-  const intest = [nome, an.livello === 'cliente' ? 'Città · gruppo' : i === 0 ? 'Gruppo canale' : 'Livello sopra', ...(an.livello === 'cliente' ? [] : ['Clienti']), ...valori(tot).map(v => v.l)];
-  $('a-clienti').innerHTML = ordinate.length ? tabella(intest, ordinate.map(r => ({
-    attr: `data-chiave="${esc(r.chiave)}"`,
-    celle: [esc(r.nome), `<span class="muto">${esc(r.dettaglio || '')}</span>`, ...(an.livello === 'cliente' ? [] : [fmtN(r.clienti)]),
-      ...valori(r).map(v => v.e != null ? fmtEuro(v.e) : v.n)],
-  })), 2) + (righe.length > 500 ? `<p class="nota" style="margin-top:6px;">I primi 500 di ${fmtN(righe.length)}.</p>` : '')
+  $('a-clienti').innerHTML = ordinate.length ? classifica(ordinate, {
+    titolo: nome, nome: r => r.nome,
+    sotto: r => [an.livello === 'cliente' ? '' : `${fmtN(r.clienti)} clienti`, r.dettaglio].filter(Boolean).join(' · '),
+    attr: r => `data-chiave="${esc(r.chiave)}"`, totale: valoreOrdine(tot),
+  }) + (righe.length > 500 ? `<p class="nota" style="margin-top:6px;">I primi 500 di ${fmtN(righe.length)}.</p>` : '')
     : '<p class="nota">Nessun cliente nel periodo con questi filtri.</p>';
+  collegaCerca('a-cerca-clienti', 'a-clienti', 'a-conta-clienti', [nome.toLowerCase(), k]);
   $('a-clienti').querySelectorAll('[data-chiave]').forEach(tr => tr.onclick = () => {
     an.f[k] = new Set([tr.dataset.chiave]);
     LIVELLI.slice(LIVELLI.findIndex(l => l.k === k) + 1).forEach(l => an.f[l.k] = null);
@@ -1004,21 +1025,49 @@ async function caricaTitoli(){
   if (n !== an.richiesta) return;
   const t0 = importiScelti()[0], m = movScelto();
   $('a-sub-titoli').textContent = `I primi 300 per ${t0} ${m === 'F' ? 'fornito' : m === 'R' ? 'reso' : '(fornito − reso)'}. Clic su un titolo per vederne l'andamento.`;
-  $('a-titoli').innerHTML = titoli.length ? tabella(['Titolo', 'EAN', 'Editore', 'Collana', 'Prezzo', ...valori(titoli[0]).map(v => v.l)], titoli.map(t => ({
-    attr: `data-ean="${esc(t.ean)}" data-titolo="${esc(t.titolo)}"`,
-    celle: [esc(t.titolo), `<span class="muto">${esc(t.ean)}</span>`, esc(t.editore), `<span class="muto">${esc(t.collana)}</span>`, fmtEuro(t.prezzo), ...valori(t).map(v => v.e != null ? fmtEuro(v.e) : v.n)],
-  })), 4) : '<p class="nota">Nessun titolo nel periodo con questi filtri.</p>';
+  $('a-titoli').innerHTML = titoli.length ? classifica(titoli, {
+    titolo: 'Titolo', nome: t => t.titolo, sotto: t => [t.ean, t.editore, t.collana, fmtEuro(t.prezzo)].filter(Boolean).join(' · '),
+    attr: t => `data-ean="${esc(t.ean)}" data-titolo="${esc(t.titolo)}"`, totale: an.tot ? valoreOrdine(an.tot) : 0,
+  }) : '<p class="nota">Nessun titolo nel periodo con questi filtri.</p>';
   $('a-titoli').querySelectorAll('[data-ean]').forEach(tr => tr.onclick = () => {
     an.ean = tr.dataset.ean; an.titoloEan = tr.dataset.titolo; aggiornaAnalisi(); window.scrollTo({ top: 0, behavior: 'smooth' });
   });
 }
 
-// Tabella semplice: le prime nTesto colonne sono testo, le altre numeri allineati a destra
-function tabella(intest, righe, nTesto = 1){
-  return `<div class="tbl-wrap" style="max-height:520px;"><table>
-    <tr>${intest.map((h, i) => `<th class="${i >= nTesto ? 'num' : ''}">${h}</th>`).join('')}</tr>
-    ${righe.map(r => `<tr class="cliccabile" ${r.attr}>${r.celle.map((c, i) => `<td class="${i >= nTesto ? 'num' : ''}">${c}</td>`).join('')}</tr>`).join('')}
+/* Classifica: posizione, nome con il dettaglio sotto, dato principale (quello su cui si ordina) con la quota
+   sul totale del periodo (barra lunga quanto la riga più alta), poi gli altri valori in tono più leggero */
+function classifica(righe, { titolo, nome, sotto, attr, totale }){
+  const t = importiScelti()[0], m = movScelto();
+  const princ = `${NOME_IMPORTO[t]} ${m === 'F' ? 'fornito' : m === 'R' ? 'reso' : 'F − R'}`;
+  const altre = valori(righe[0]).map(v => v.l).filter(l => l !== princ);
+  const den = totale > 0 ? totale : righe.reduce((a, r) => a + Math.max(0, valoreOrdine(r)), 0);
+  const max = Math.max(1e-9, ...righe.map(r => valoreOrdine(r)));
+  const cella = v => v ? (v.e != null ? fmtEuro(v.e) : v.n) : '';
+  return `<div class="tbl-wrap" style="max-height:520px;"><table class="classifica">
+    <tr><th></th><th>${esc(titolo)}</th><th class="num">${esc(princ)}</th><th>Quota</th>${altre.map(l => `<th class="num">${esc(l)}</th>`).join('')}</tr>
+    ${righe.map((r, i) => {
+      const n = nome(r) || '—', st = sotto(r) || '', vs = valori(r), x = valoreOrdine(r);
+      const q = den ? Math.max(0, x) / den * 100 : 0;
+      return `<tr class="cliccabile" ${attr(r)} data-cerca="${esc((n + ' ' + st).toLowerCase())}">
+        <td class="rk">${i + 1}</td>
+        <td><div class="nm">${esc(n)}</div>${st ? `<div class="st">${esc(st)}</div>` : ''}</td>
+        <td class="num princ">${cella(vs.find(v => v.l === princ))}</td>
+        <td class="qt"><div class="qt-b"><span><i style="width:${Math.max(0, x) / max * 100}%"></i></span>${q.toLocaleString('it-IT', { maximumFractionDigits: q < 10 ? 1 : 0 })}%</div></td>
+        ${altre.map(l => `<td class="num sec">${cella(vs.find(v => v.l === l))}</td>`).join('')}</tr>`;
+    }).join('')}
   </table></div>`;
+}
+// Mini ricerca di una classifica: nasconde le righe che non contengono il testo (nome o dettaglio) e dice quante ne restano
+function collegaCerca(idInput, idBox, idConta, [uno, tanti]){
+  const inp = $(idInput), box = $(idBox);
+  const applica = () => {
+    const q = inp.value.trim().toLowerCase(), righe = [...box.querySelectorAll('tr[data-cerca]')];
+    let viste = 0;
+    righe.forEach(tr => { const ok = !q || tr.dataset.cerca.includes(q); tr.classList.toggle('nascosta', !ok); if (ok) viste++; });
+    $(idConta).textContent = !righe.length ? '' : (q ? `${fmtN(viste)} di ${fmtN(righe.length)}` : `${fmtN(righe.length)} ${righe.length === 1 ? uno : tanti}`) + '. ';
+  };
+  inp.oninput = applica;
+  applica();
 }
 
 /* Grafico a barre affiancate: fornite (serie 1) e rese (serie 2) per periodo.
