@@ -179,6 +179,10 @@ html[data-theme="light"]{ --tipo-lancio:#2a78d6; --tipo-novita:#8a3fd1; --tipo-c
 .grafico{position:relative;width:100%;height:280px;}
 .grafico svg{display:block;width:100%;height:100%;}
 .grafico rect[data-i]{cursor:pointer;}
+.grafico .linea-prec{fill:none;stroke-width:1.5;stroke-dasharray:4 3;stroke-linejoin:round;opacity:.75;pointer-events:none;}
+.grafico .punto-prec{fill:var(--card);stroke-width:1.5;pointer-events:none;}
+.legenda i.leg-prec{background:none;border:1.5px dashed var(--muted);}
+.tooltip .tt-prec{margin-top:6px;padding-top:6px;border-top:1px solid var(--border);}
 .grafico [data-barre]{transition:opacity .15s;}
 .grafico .spenta{opacity:.2;filter:grayscale(1);}
 .grafico .asse{font-size:11px;fill:var(--muted);font-variant-numeric:tabular-nums;}
@@ -792,14 +796,28 @@ async function aggiornaAnalisi(){
   const n = ++an.richiesta;
   if (an.b) chiudiPannello();
   disegnaRiepilogo();
-  const anda = await rpc('msg_analisi_andamento', { p_date: dateScelte(), p_editori: filtroEditori(), p_ean: an.ean, p_grana: an.f.grana, p_clienti: filtroClienti() });
+  // Anno precedente giorno per giorno (stessa data), poi sommato nei periodi del grafico di quest'anno
+  const filtri = { p_editori: filtroEditori(), p_ean: an.ean, p_clienti: filtroClienti() };
+  const periodoPrima = new Map(dateScelte().map(g => [annoPrima(g), periodoDi(g)]));
+  const [anda, giorniPrima] = await Promise.all([
+    rpc('msg_analisi_andamento', { p_date: dateScelte(), ...filtri, p_grana: an.f.grana }),
+    rpc('msg_analisi_andamento', { p_date: [...periodoPrima.keys()], ...filtri, p_grana: 'giorno' }).catch(e => { console.warn(e); return []; }),
+  ]);
   if (n !== an.richiesta) return;   // nel frattempo è cambiato un filtro
   an.serie = anda;
+  an.seriePrima = new Map();
+  giorniPrima.forEach(x => {
+    const p = periodoPrima.get(x.periodo); if (!p) return;
+    const t = an.seriePrima.get(p) || TOT_ZERO();
+    Object.keys(t).forEach(k => t[k] += Number(x[k] || 0));
+    an.seriePrima.set(p, t);
+  });
   an.selGrafico = new Set([...an.selGrafico].filter(p => anda.some(x => x.periodo === p)));
   const mov = movScelto(), nomeEd = descrizioneEditori();
   $('a-titolo-grafico').textContent = `Copie ${mov === 'F' ? 'fornite' : mov === 'R' ? 'rese' : 'fornite e rese'}${an.ean ? ' · ' + (an.titoloEan || an.ean) : nomeEd ? ' · ' + nomeEd : ''}`;
   $('a-legenda').innerHTML = (mov !== 'R' ? '<span><i style="background:var(--serie-1)"></i>Fornite</span>' : '')
-    + (mov !== 'F' ? '<span><i style="background:var(--serie-2)"></i>Rese</span>' : '');
+    + (mov !== 'F' ? '<span><i style="background:var(--serie-2)"></i>Rese</span>' : '')
+    + (an.seriePrima.size ? '<span><i class="leg-prec"></i>Anno precedente</span>' : '');
   disegnaGrafico(anda);
   await aggiornaDettaglio(n);
 }
@@ -998,7 +1016,9 @@ function disegnaGrafico(dati){
   const m = { s: 56, d: 8, a: 10, b: 26 };
   const w = W - m.s - m.d, h = H - m.a - m.b;
   const mov = movScelto(), conF = mov !== 'R', conR = mov !== 'F';
-  const max = Math.max(1, ...dati.map(x => Math.max(conF ? Number(x.copie_f) : 0, conR ? Number(x.copie_r) : 0)));
+  const prec = an.seriePrima || new Map(), pr = d => prec.get(d.periodo);
+  const alto = x => Math.max(conF ? Number(x.copie_f) : 0, conR ? Number(x.copie_r) : 0);
+  const max = Math.max(1, ...dati.map(x => Math.max(alto(x), pr(x) ? alto(pr(x)) : 0)));
   const passo = Math.pow(10, Math.floor(Math.log10(max)));
   const tacca = [1, 2, 2.5, 5, 10].map(k => k * passo).find(t => max / t <= 5) || passo * 10;
   const top = Math.ceil(max / tacca) * tacca;
@@ -1016,20 +1036,33 @@ function disegnaGrafico(dati){
     html += `<line x1="${m.s}" x2="${W - m.d}" y1="${y(v)}" y2="${y(v)}" stroke="var(--griglia)" />`
       + `<text class="asse" x="${m.s - 8}" y="${y(v) + 4}" text-anchor="end">${fmtN(v)}</text>`;
   }
-  const barra = (x, v, colore) => {
+  const barra = (x, v, colore, l = larg, extra = '') => {
     const yy = y(v), alt = m.a + h - yy;
     if (alt <= 0) return '';
-    const r = Math.min(4, larg / 2, alt);
-    return `<path fill="${colore}" d="M${x},${m.a + h} V${yy + r} Q${x},${yy} ${x + r},${yy} H${x + larg - r} Q${x + larg},${yy} ${x + larg},${yy + r} V${m.a + h} Z" />`;
+    const r = Math.min(4, l / 2, alt);
+    return `<path fill="${colore}" ${extra} d="M${x},${m.a + h} V${yy + r} Q${x},${yy} ${x + r},${yy} H${x + l - r} Q${x + l},${yy} ${x + l},${yy + r} V${m.a + h} Z" />`;
   };
+  // Serie mostrate: [campo, colore, x della barra rispetto al centro del periodo]
+  const serie = due ? [['copie_f', 'var(--serie-1)', -larg - 1], ['copie_r', 'var(--serie-2)', 1]]
+    : [[conF ? 'copie_f' : 'copie_r', conF ? 'var(--serie-1)' : 'var(--serie-2)', -larg / 2]];
   const ogni = Math.max(1, Math.ceil(dati.length / Math.floor(w / 64)));
+  const linee = serie.map(() => []);
   dati.forEach((d, i) => {
-    const cx = m.s + banda * i + banda / 2;
-    html += `<g data-barre="${i}">` + (due ? barra(cx - larg - 1, Number(d.copie_f), 'var(--serie-1)') + barra(cx + 1, Number(d.copie_r), 'var(--serie-2)')
-      : barra(cx - larg / 2, Number(conF ? d.copie_f : d.copie_r), conF ? 'var(--serie-1)' : 'var(--serie-2)')) + '</g>';
+    const cx = m.s + banda * i + banda / 2, p = pr(d);
+    // Anno precedente: barra più larga e trasparente dietro a quella di quest'anno
+    html += `<g data-barre="${i}">`
+      + (p ? serie.map(([k, c, dx]) => barra(cx + dx - 3, Number(p[k]), c, larg + 6, 'fill-opacity=".22"')).join('') : '')
+      + serie.map(([k, c, dx]) => barra(cx + dx, Number(d[k]), c)).join('') + '</g>';
+    if (p) serie.forEach(([k, , dx], j) => linee[j].push(`${cx + dx + larg / 2},${y(Number(p[k]))}`));
     if (i % ogni === 0) html += `<text class="asse" x="${cx}" y="${H - 8}" text-anchor="middle">${fmtGiorno(d.periodo)}</text>`;
-    html += `<rect data-i="${i}" x="${m.s + banda * i}" y="${m.a}" width="${banda}" height="${h}" fill="transparent" />`;
   });
+  // Tracciato dell'anno precedente: salite e discese da un periodo all'altro
+  serie.forEach(([, c], j) => {
+    if (linee[j].length < 2) return;
+    html += `<polyline class="linea-prec" points="${linee[j].join(' ')}" stroke="${c}" />`
+      + linee[j].map(pt => { const [px, py] = pt.split(','); return `<circle class="punto-prec" cx="${px}" cy="${py}" r="2.5" stroke="${c}" />`; }).join('');
+  });
+  dati.forEach((d, i) => html += `<rect data-i="${i}" x="${m.s + banda * i}" y="${m.a}" width="${banda}" height="${h}" fill="transparent" />`);
   svg.innerHTML = html;
   box.appendChild(svg);
   const tip = document.createElement('div');
@@ -1054,6 +1087,13 @@ function disegnaGrafico(dati){
         const nt = document.createElement('div'); if (!k) nt.style.marginTop = '4px';
         nt.textContent = `${v.l} ${fmtEuro(v.e)}`; tip.appendChild(nt);
       });
+      const p = pr(d);
+      if (p) {
+        const ap = document.createElement('div'); ap.className = 'tt-prec';
+        ap.innerHTML = `<div class="muto">Anno prec.${grana === 'giorno' ? ' (' + fmtGiorno(annoPrima(d.periodo)) + ')' : ''}</div>`
+          + serie.map(([k, c]) => `<div class="tt-riga"><i style="background:${c};opacity:.4"></i><b>${fmtN(p[k])}</b> ${k === 'copie_f' ? 'fornite' : 'rese'} ${variazione(Number(d[k]), Number(p[k]))}</div>`).join('');
+        tip.appendChild(ap);
+      }
       tip.classList.remove('hidden');
       const bb = box.getBoundingClientRect();
       const px = ev.clientX - bb.left, tw = tip.offsetWidth;
@@ -1427,7 +1467,7 @@ function leggiPpsvmagg(testo){
       const cliente = campo(r, 39, 46);
       const m = campo(r, 266, 267).charAt(0) === 'R' ? 'R' : 'F';
       const copie = intero(r, 47, 51);
-      const prezzo = intero(r, 55, 62);          // centesimi
+      const prezzo = intero(r, 56, 62);          // centesimi (la pos. 55 a volte vale 1 o 2 sui resi: non fa parte del prezzo)
       const netto = intero(r, 501, 515);         // centesimi
       const lancio = campo(r, 375, 378) === "YBA3";   // bolla di lancio; il resto è rifornimento
       const k = `${data}|${ean}|${cliente}|${m}|${lancio}`;

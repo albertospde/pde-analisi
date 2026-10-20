@@ -27,7 +27,8 @@ Affidabilità: ✅ verificato con dati esterni o formule su tutte le righe · �
 | 29-38 | Codice articolo | 8880636809 | ✅ | = EAN senza le prime 3 cifre |
 | 39-46 | Codice cliente | 01935101 | ✅ | 1:1 con ragione sociale e P.IVA |
 | 47-51 | Copie | 00001 | ✅ | sempre positive: il segno lo dà il movimento (F/R) |
-| 55-62 | Prezzo di copertina | 00001500 | ✅ | IVA inclusa; 80/80 uguali ai prezzi di Giro Manager |
+| 55 | (flag sconosciuto) | 0 | 🟡 | quasi sempre 0; su 11 resi set-nov 2025 vale 1 o 2: NON fa parte del prezzo |
+| 56-62 | Prezzo di copertina | 0001500 | ✅ | IVA inclusa; 80/80 uguali ai prezzi di Giro Manager |
 | 63-64 | Codice | 01 | ❓ | 01 nel 96% delle righe |
 | 65-68 | Sconto 1 % | 3000 | ✅ | 30,00% |
 | 69-72 | Sconto 2 % | 1400 | ✅ | |

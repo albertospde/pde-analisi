@@ -50,7 +50,7 @@ function leggiPpsvmagg(testo) {
       const cliente = campo(r, 39, 46);
       const m = campo(r, 266, 267).charAt(0) === "R" ? "R" : "F";
       const copie = intero(r, 47, 51);
-      const prezzo = intero(r, 55, 62);          // centesimi
+      const prezzo = intero(r, 56, 62);          // centesimi (la pos. 55 a volte vale 1 o 2 sui resi: non fa parte del prezzo)
       const netto = intero(r, 501, 515);         // centesimi
       const lancio = campo(r, 375, 378) === "YBA3";   // bolla di lancio; il resto è rifornimento
       const k = `${data}|${ean}|${cliente}|${m}|${lancio}`;
