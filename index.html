@@ -1192,8 +1192,9 @@ function leggiPpsvmagg(testo){
       const copie = intero(r, 47, 51);
       const prezzo = intero(r, 55, 62);          // centesimi
       const netto = intero(r, 501, 515);         // centesimi
-      const k = `${data}|${ean}|${cliente}|${m}`;
-      const x = mov.get(k) || { data, ean, codice_cliente: cliente, movimento: m, copie: 0, lordo: 0, netto: 0 };
+      const lancio = campo(r, 375, 378) === "YBA3";   // bolla di lancio; il resto è rifornimento
+      const k = `${data}|${ean}|${cliente}|${m}|${lancio}`;
+      const x = mov.get(k) || { data, ean, codice_cliente: cliente, movimento: m, lancio, copie: 0, lordo: 0, netto: 0 };
       x.copie += copie; x.lordo += copie * prezzo; x.netto += netto;
       mov.set(k, x);
       tot[m].copie += copie; tot[m].netto += netto;

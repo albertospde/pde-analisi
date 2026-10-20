@@ -4,7 +4,7 @@
 //
 // Per ogni file scaricato non ancora importato (edge function msg-import-automatico, azione "piano"):
 //   1. scarica il file dall'URL firmato e lo legge con leggiPpsvmagg: stessa lettura e stessa
-//      somma per giorno × EAN × cliente × fornito/reso del tasto "📥 Importa" di index.html
+//      somma per giorno × EAN × cliente × fornito/reso × lancio (causale YBA3) del tasto "📥 Importa" di index.html
 //   2. lo carica a blocchi con le RPC msg_import_* (tramite la edge function, service role)
 //   3. confronta i totali calcolati dal database con quelli del file e scrive l'esito nel registro
 //      SFTP di PDE Analisi (sftp_esecuzioni, origine "importazione")
@@ -52,8 +52,9 @@ function leggiPpsvmagg(testo) {
       const copie = intero(r, 47, 51);
       const prezzo = intero(r, 55, 62);          // centesimi
       const netto = intero(r, 501, 515);         // centesimi
-      const k = `${data}|${ean}|${cliente}|${m}`;
-      const x = mov.get(k) || { data, ean, codice_cliente: cliente, movimento: m, copie: 0, lordo: 0, netto: 0 };
+      const lancio = campo(r, 375, 378) === "YBA3";   // bolla di lancio; il resto è rifornimento
+      const k = `${data}|${ean}|${cliente}|${m}|${lancio}`;
+      const x = mov.get(k) || { data, ean, codice_cliente: cliente, movimento: m, lancio, copie: 0, lordo: 0, netto: 0 };
       x.copie += copie; x.lordo += copie * prezzo; x.netto += netto;
       mov.set(k, x);
       tot[m].copie += copie; tot[m].netto += netto;
