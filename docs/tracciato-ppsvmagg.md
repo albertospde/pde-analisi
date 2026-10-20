@@ -59,18 +59,32 @@ Affidabilità: ✅ verificato con dati esterni o formule su tutte le righe · �
 | 299-304 | Magazzino | ME6021 | 🟡 | |
 | 311-370 | Titolo | RAGAZZI VENUTI TERRA ISRAELE | ✅ | |
 | 371-374 | Canale ordine | WEB | 🟡 | WEB, ARIA, FTP, MELI |
-| 375-378 | Causale magazzino | YBA1 | 🟡 | |
+| 375-378 | Causale magazzino | YBA1 | ✅ | **YBA3 = bolla di lancio** (data ordine = data di iscrizione del lancio: nel 286 i lanci 42 e 43); YBA1 rifornimento; ZRR reso; YURG urgente (MELI). Anche alcune spedizioni di catalogo hanno YBA3 (es. 20-21/05/2025) |
 | 379-389 | Campagna | FAZI2026 | 🟡 | quasi sempre vuoto |
 | 391-405 | Importo sconto 1 | …433 | ✅ | = copie × prezzo / 1,04 × sconto 1 (34.219/34.222) |
 | 406-420 | Importo sconto 2 | …201 | ✅ | stessa formula con sconto 2 |
 | 421-435 | Importo sconto 3 | …072 | ✅ | stessa formula con sconto 3 |
 | 436-450 | Importo sconto 4 | 0 | 🟡 | sempre 0 nel file analizzato |
-| 470-498 | Codici GC/GH/Z | GC00000034GH00000010Z02M00303 | ❓ | |
+| 470-498 | Codici GC/GH/Z | GC00000034GH00000010Z02M00303 | 🟡 | GC = gruppo cliente di Giro Manager (34 Mondadori Franch., 82 Amazon, 2 Feltrinelli Librerie); GH e Z non decodificati |
 | 501-515 | Importo netto | …766 | 🟡 | importo riga; circa copie × prezzo × (1 − sconti), formula esatta non ricostruita |
 | 524-533 | Numero bolla | 0759657782 | 🟡 | più bolle per documento |
 | 803-812 | Numero documento | 0000330751 | 🟡 | |
 
 Le posizioni non elencate sono spazi o zeri fissi.
+
+## Lancio e rifornimento
+
+Ogni movimento è **lancio** (causale di magazzino YBA3) o **rifornimento**. Il rifornimento è **da novità** se il
+titolo è uscito da meno di 6 mesi, altrimenti **classico** (`_msg_tipo`). La data di uscita (`msg_titoli.data_uscita`)
+è la prima bolla di lancio del titolo, se arriva prima di ogni suo rifornimento (così le spedizioni YBA3 sul catalogo
+non rendono novità titoli vecchi), oppure la data di messa in vendita delle novità di Giro Manager. Per i titoli
+lanciati prima dello storico caricato le date vengono dai mensili marzo-agosto 2025 (`msg_uscite_storico`, caricata con
+`importa_storico.py --uscite`).
+
+## Clienti
+
+Canale, categoria e gruppo cliente vengono da Giro Manager (`anagrafiche_clienti` → `gruppi_clienti` → `canali`),
+copiati in `msg_clienti_gruppo` a ogni importazione; i codici cliente si confrontano senza zeri iniziali.
 
 ## Editore di un titolo
 

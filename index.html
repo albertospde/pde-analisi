@@ -146,6 +146,20 @@ html[data-theme="light"]{ --serie-1:#2a78d6; --serie-2:#eb6834; --griglia:rgba(2
 .f-lista .acc{margin-left:auto;font-size:11px;color:var(--muted);padding-left:8px;}
 .f-colonne{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));column-gap:8px;align-content:start;}
 .f-mese-tit{grid-column:1/-1;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;padding:6px 6px 2px;}
+/* Lanci e rifornimenti: due ciambelle (periodo e anno precedente) e tabella di confronto */
+:root{ --tipo-lancio:#3987e5; --tipo-novita:#a35ce0; --tipo-classico:#25a88a; --su:#3fb36b; --giu:#ef5b5b; }
+html[data-theme="light"]{ --tipo-lancio:#2a78d6; --tipo-novita:#8a3fd1; --tipo-classico:#16896f; --su:#1f8a4c; --giu:#c62828; }
+.torte{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px 24px;align-items:start;}
+.torta{display:flex;flex-direction:column;align-items:center;gap:6px;}
+.torta svg{width:190px;height:190px;}
+.torta .t-tit{font-size:13px;font-weight:600;}
+.torta .t-sub{font-size:12px;color:var(--muted);}
+.torta .t-tot{font-size:17px;font-weight:700;fill:var(--text);font-variant-numeric:tabular-nums;}
+.torta .t-cap{font-size:11px;fill:var(--muted);}
+.torte table{grid-column:1/-1;}
+.su{color:var(--su);} .giu{color:var(--giu);}
+.kpi-s .su,.kpi-s .giu{font-weight:600;}
+#a-livello label{padding:4px 10px;font-size:12px;}
 .f-piede{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:flex-end;margin-top:12px;}
 .f-piede .err{margin-right:auto;min-height:0;}
 .kpi-riga{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:16px;}
@@ -240,6 +254,20 @@ td.muto{color:var(--muted);}
             <span class="f-az"><button type="button" class="btn btn-sec btn-sm" data-tutti="editori">Tutti</button><button type="button" class="btn btn-sec btn-sm" data-nessuno="editori">Nessuno</button></span></div>
           <input type="text" id="f-editori-cerca" placeholder="Cerca editore…" aria-label="Cerca editore">
           <div class="f-lista f-alta f-colonne" id="f-editori"></div></div>
+        <!-- Clienti: canale → categoria → gruppo cliente → cliente (gerarchia di Giro Manager) -->
+        <div class="f-box"><div class="f-testa"><span>Canali</span><span class="f-conta" id="f-canali-conta"></span>
+            <span class="f-az"><button type="button" class="btn btn-sec btn-sm" data-tutti="canali">Tutti</button><button type="button" class="btn btn-sec btn-sm" data-nessuno="canali">Nessuno</button></span></div>
+          <div class="f-lista f-alta" id="f-canali"></div></div>
+        <div class="f-box"><div class="f-testa"><span>Categorie</span><span class="f-conta" id="f-categorie-conta"></span>
+            <span class="f-az"><button type="button" class="btn btn-sec btn-sm" data-tutti="categorie">Tutti</button><button type="button" class="btn btn-sec btn-sm" data-nessuno="categorie">Nessuno</button></span></div>
+          <div class="f-lista f-alta" id="f-categorie"></div></div>
+        <div class="f-box"><div class="f-testa"><span>Gruppi clienti</span><span class="f-conta" id="f-gruppi-conta"></span>
+            <span class="f-az"><button type="button" class="btn btn-sec btn-sm" data-tutti="gruppi">Tutti</button><button type="button" class="btn btn-sec btn-sm" data-nessuno="gruppi">Nessuno</button></span></div>
+          <div class="f-lista f-alta" id="f-gruppi"></div></div>
+        <div class="f-box f-largo"><div class="f-testa"><span>Clienti</span><span class="f-conta" id="f-clienti-conta"></span>
+            <span class="f-az"><button type="button" class="btn btn-sec btn-sm" data-tutti="clienti">Tutti</button><button type="button" class="btn btn-sec btn-sm" data-nessuno="clienti">Nessuno</button></span></div>
+          <input type="text" id="f-clienti-cerca" placeholder="Cerca cliente o città…" aria-label="Cerca cliente">
+          <div class="f-lista f-alta" id="f-clienti"></div></div>
       </div>
       <div class="f-piede"><span class="err" id="f-errore"></span>
         <button type="button" class="btn btn-sec" id="f-azzera">Azzera filtri</button>
@@ -254,6 +282,16 @@ td.muto{color:var(--muted);}
           <div class="legenda" id="a-legenda"></div></div>
         <p class="sub">Clic su una barra per vedere sotto solo quel periodo; riclicca per tornare a tutto. Ctrl+clic per sceglierne più d'uno.</p>
         <div id="a-grafico" class="grafico"></div>
+      </div>
+      <div class="card">
+        <div class="viz-testa"><h2 id="a-titolo-tipi">Lanci e rifornimenti</h2><div class="legenda" id="a-legenda-tipi"></div></div>
+        <p class="sub" id="a-sub-tipi"></p>
+        <div class="torte" id="a-tipi"></div>
+      </div>
+      <div class="card" id="a-card-clienti">
+        <div class="viz-testa"><h2 id="a-titolo-clienti">Clienti</h2><div class="f-scelte" id="a-livello" role="group" aria-label="Livello"></div></div>
+        <p class="sub">Clic su una riga per filtrarla e scendere al livello sotto.</p>
+        <div id="a-clienti"></div>
       </div>
       <div class="card" id="a-card-editori">
         <h2 id="a-titolo-editori">Editori</h2>
@@ -415,9 +453,10 @@ function disegnaCollane(){
    regola: come riaggiornare i giorni quando arrivano nuovi file ({ rapido: '30' } o { mesi: [...] }, null = giorni fissi)
    mov: Set di 'F'/'R'; imp: Set di 'lordo'/'netto'; grana: 'giorno'|'settimana'|'mese'
    account: null = tutti, altrimenti Set (NESSUN_ACCOUNT = editori senza account)
-   editori: null = tutti gli editori degli account scelti, altrimenti Set di nomi */
+   editori: null = tutti gli editori degli account scelti, altrimenti Set di nomi
+   canali, categorie, gruppi, clienti: come gli editori, ognuno dentro le scelte del livello sopra */
 const NESSUN_ACCOUNT = '-';
-const an = { giorni: [], tuttiEditori: [], elenco: [], selGrafico: new Set(), f: null, b: null, ean: null, titoloEan: null, pronto: false, richiesta: 0 };
+const an = { giorni: [], tuttiEditori: [], tuttiClienti: [], livello: 'canale', elenco: [], selGrafico: new Set(), f: null, b: null, ean: null, titoloEan: null, pronto: false, richiesta: 0 };
 const isoGiorno = d => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
 const piuGiorni = (iso, n) => { const d = new Date(iso + 'T12:00:00'); d.setDate(d.getDate() + n); return isoGiorno(d); };
 const fmtGiorno = iso => new Date(iso + 'T12:00:00').toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: '2-digit' });
@@ -449,8 +488,10 @@ function giorniDaRegola(r){
   return null;
 }
 // All'apertura: il mese in corso giorno per giorno, in lordo (come Tableau)
-const filtriIniziali = () => ({ date: giorniRapido('mese'), regola: { rapido: 'mese' }, mov: new Set(['F', 'R']), imp: new Set(['lordo']), grana: 'giorno', account: null, editori: null });
-const copiaFiltri = f => ({ ...f, date: new Set(f.date), mov: new Set(f.mov), imp: new Set(f.imp), account: f.account && new Set(f.account), editori: f.editori && new Set(f.editori) });
+const filtriIniziali = () => ({ date: giorniRapido('mese'), regola: { rapido: 'mese' }, mov: new Set(['F', 'R']), imp: new Set(['lordo']), grana: 'giorno', account: null, editori: null,
+  canali: null, categorie: null, gruppi: null, clienti: null });
+const copiaFiltri = f => ({ ...f, date: new Set(f.date), mov: new Set(f.mov), imp: new Set(f.imp), account: f.account && new Set(f.account), editori: f.editori && new Set(f.editori),
+  ...Object.fromEntries(LIVELLI.map(l => [l.k, f[l.k] && new Set(f[l.k])])) });
 
 // Editori ammessi da account ed editori scelti (f = filtri applicati o bozza)
 const editoreAmmesso = (f, e) => (!f.account || f.account.has(accountDi(e))) && (!f.editori || f.editori.has(e.editore));
@@ -464,6 +505,27 @@ function descrizioneEditori(){
 }
 const dateScelte = () => [...an.f.date].sort();
 
+/* Clienti: quattro livelli, ognuno ristretto dalle scelte dei livelli sopra */
+const LIVELLI = [
+  { k: 'canali', campo: 'canale', nome: 'Canale', plurale: 'canali' },
+  { k: 'categorie', campo: 'categoria', nome: 'Categoria', plurale: 'categorie' },
+  { k: 'gruppi', campo: 'gruppo', nome: 'Gruppo', plurale: 'gruppi' },
+  { k: 'clienti', campo: 'codice_cliente', nome: 'Cliente', plurale: 'clienti' },
+];
+// Clienti che passano i livelli prima di i (i = LIVELLI.length: tutti i livelli)
+const clientiFino = (f, i) => an.tuttiClienti.filter(c => LIVELLI.slice(0, i).every(l => !f[l.k] || f[l.k].has(c[l.campo])));
+const valoriLivello = (f, i) => [...new Set(clientiFino(f, i).map(c => c[LIVELLI[i].campo]))];
+// Codici da passare alle RPC: null = nessun filtro sui clienti
+const filtroClienti = () => LIVELLI.some(l => an.f[l.k]) ? clientiFino(an.f, LIVELLI.length).map(c => c.codice_cliente) : null;
+const nomeCliente = c => c ? `${c.ragione_sociale || c.codice_cliente}${c.citta ? ' · ' + c.citta.trim() : ''}` : '';
+function descrizioneLivello(l){
+  const v = [...an.f[l.k]];
+  if (v.length !== 1) return `${v.length} ${l.plurale}`;
+  return l.k === 'clienti' ? nomeCliente(an.tuttiClienti.find(c => c.codice_cliente === v[0])) || v[0] : v[0];
+}
+// Stessa data un anno prima (il 29 febbraio diventa il 28)
+const annoPrima = g => { const [y, m, d] = g.split('-').map(Number); const x = new Date(y - 1, m - 1, d, 12); if (x.getMonth() !== m - 1) x.setDate(0); return isoGiorno(x); };
+
 /* Movimento e importo: lordo = copie × prezzo di copertina (come Tableau); netto = importo dopo gli sconti ai clienti */
 const movScelto = () => an.f.mov.size === 2 ? 'FR' : [...an.f.mov][0];
 const importiScelti = () => ['lordo', 'netto'].filter(t => an.f.imp.has(t));
@@ -471,8 +533,8 @@ const NOME_IMPORTO = { lordo: 'Lordo', netto: 'Netto' };
 // Colonne / indicatori per un oggetto con copie_f, copie_r, netto_f, netto_r, lordo_f, lordo_r
 function valori(x){
   const m = movScelto(), F = m !== 'R', R = m !== 'F', v = [];
-  if (F) v.push({ l: 'Fornite', n: fmtN(x.copie_f), k: 'Copie fornite' });
-  if (R) v.push({ l: 'Rese', n: fmtN(x.copie_r), k: 'Copie rese' });
+  if (F) v.push({ l: 'Fornite', n: fmtN(x.copie_f), x: Number(x.copie_f), k: 'Copie fornite' });
+  if (R) v.push({ l: 'Rese', n: fmtN(x.copie_r), x: Number(x.copie_r), k: 'Copie rese' });
   if (F && R) v.push({ l: 'Resa', n: fmtPerc(Number(x.copie_r), Number(x.copie_f)), k: 'Resa', s: 'rese su fornite' });
   importiScelti().forEach(t => {
     const f = Number(x[t + '_f']), r = Number(x[t + '_r']), nome = NOME_IMPORTO[t];
@@ -501,7 +563,7 @@ async function avviaAnalisi(){
   $('a-contenuto').classList.toggle('hidden', !an.giorni.length);
   if (!an.giorni.length) return;
   // Editori e account di tutto il periodo disponibile, per le liste del pannello
-  an.tuttiEditori = await rpc('msg_analisi_elenco_editori', {});
+  [an.tuttiEditori, an.tuttiClienti] = await Promise.all([rpc('msg_analisi_elenco_editori', {}), rpc('msg_analisi_elenco_clienti', {})]);
   if (!an.f) an.f = filtriIniziali();
   else {
     // Scorciatoia o mesi interi: i nuovi file importati allungano il periodo
@@ -523,11 +585,13 @@ function preparaPannello(){
     // Tutti gli account / tutti gli editori visibili spuntati = nessun filtro
     if (b.account && b.account.size === tuttiAccount().length) b.account = null;
     if (b.editori && editoriBozza().every(e => b.editori.has(e.editore))) b.editori = null;
+    LIVELLI.forEach((l, i) => { if (b[l.k] && valoriLivello(b, i).every(v => b[l.k].has(v))) b[l.k] = null; });
     an.f = b; an.ean = null; an.selGrafico = new Set();
     chiudiPannello();
     aggiornaAnalisi();
   };
   $('f-editori-cerca').oninput = disegnaEditori;
+  $('f-clienti-cerca').oninput = disegnaClientiPannello;
   // Un solo gestore per tutte le spunte del pannello (data-k = quale filtro, value = valore)
   p.addEventListener('change', e => {
     const c = e.target, k = c.dataset.k, b = an.b;
@@ -546,6 +610,15 @@ function preparaPannello(){
       if (!b.editori) b.editori = new Set(editoriBozza().map(x => x.editore));
       c.checked ? b.editori.add(c.value) : b.editori.delete(c.value);
     }
+    const i = LIVELLI.findIndex(l => l.k === k);
+    if (i >= 0) {
+      const l = LIVELLI[i];
+      if (!b[l.k]) b[l.k] = new Set(valoriLivello(b, i));
+      c.checked ? b[l.k].add(c.value) : b[l.k].delete(c.value);
+      // Livelli sotto con una scelta attiva: entrano spuntati i valori che il nuovo valore porta con sé
+      if (c.checked) LIVELLI.slice(i + 1).forEach(sotto => { if (b[sotto.k])
+        an.tuttiClienti.filter(x => x[l.campo] === c.value).forEach(x => b[sotto.k].add(x[sotto.campo])); });
+    }
     disegnaPannello();
   });
   p.addEventListener('click', e => {
@@ -559,6 +632,13 @@ function preparaPannello(){
       // Con una ricerca attiva vale per gli editori mostrati
       if (!b.editori) b.editori = new Set(editoriBozza().map(x => x.editore));
       editoriMostrati().forEach(x => tutti ? b.editori.add(x.editore) : b.editori.delete(x.editore));
+    }
+    const i = LIVELLI.findIndex(l => l.k === quale);
+    if (i >= 0) {
+      const l = LIVELLI[i];
+      if (!b[l.k]) b[l.k] = new Set(valoriLivello(b, i));
+      // Per i clienti, con una ricerca attiva vale per quelli mostrati
+      (l.k === 'clienti' ? clientiMostrati().map(c => c.codice_cliente) : valoriLivello(b, i)).forEach(v => tutti ? b[l.k].add(v) : b[l.k].delete(v));
     }
     disegnaPannello();
   });
@@ -577,7 +657,7 @@ function preparaPannello(){
 }
 function apriPannello(){
   an.b = copiaFiltri(an.f);
-  $('f-editori-cerca').value = '';
+  $('f-editori-cerca').value = $('f-clienti-cerca').value = '';
   $('f-pannello').classList.remove('hidden');
   $('f-apri').setAttribute('aria-expanded', 'true');
   $('f-freccia').textContent = '▴';
@@ -624,15 +704,41 @@ function disegnaPannello(da, a){
     `<span class="acc">${an.tuttiEditori.filter(e => accountDi(e) === x).length}</span>`)).join('');
   $('f-account-conta').textContent = `${b.account ? b.account.size : acc.length} di ${acc.length}`;
   disegnaEditori();
+  disegnaClientiPannello();
+}
+// Canali, categorie e gruppi a vista; clienti con ricerca. Numero accanto = clienti
+const clientiMostrati = () => { const q = $('f-clienti-cerca').value.trim().toUpperCase();
+  return clientiFino(an.b, 3).filter(c => !q || `${c.ragione_sociale} ${c.citta} ${c.codice_cliente}`.toUpperCase().includes(q)); };
+function disegnaClientiPannello(){
+  const b = an.b;
+  LIVELLI.slice(0, 3).forEach((l, i) => {
+    const n = new Map(); clientiFino(b, i).forEach(c => n.set(c[l.campo], (n.get(c[l.campo]) || 0) + 1));
+    const vals = [...n.keys()].sort((x, y) => x.localeCompare(y, 'it'));
+    $('f-' + l.k).innerHTML = vals.map(v => spunta(l.k, v, !b[l.k] || b[l.k].has(v), esc(v), `<span class="acc">${n.get(v)}</span>`)).join('')
+      || '<p class="nota" style="padding:6px;">Nessuno.</p>';
+    $(`f-${l.k}-conta`).textContent = `${b[l.k] ? vals.filter(v => b[l.k].has(v)).length : vals.length} di ${vals.length}`;
+  });
+  const tutti = clientiFino(b, 3), trovati = clientiMostrati(), mostrati = trovati.slice(0, 400);
+  $('f-clienti').innerHTML = mostrati.length ? mostrati.map(c => spunta('clienti', c.codice_cliente, !b.clienti || b.clienti.has(c.codice_cliente),
+    esc(nomeCliente(c)), `<span class="acc">${esc(c.gruppo)}</span>`)).join('')
+    + (trovati.length > 400 ? `<p class="nota" style="padding:6px;">Mostrati 400 di ${fmtN(trovati.length)}: usa la ricerca per gli altri.</p>` : '')
+    : '<p class="nota" style="padding:6px;">Nessun cliente trovato.</p>';
+  $('f-clienti-conta').textContent = `${b.clienti ? tutti.filter(c => b.clienti.has(c.codice_cliente)).length : tutti.length} di ${tutti.length}`;
+  controllaBozza();
 }
 function disegnaEditori(){
   const b = an.b, tutti = editoriBozza(), mostrati = editoriMostrati();
   $('f-editori').innerHTML = mostrati.length ? mostrati.map(e => spunta('editore', e.editore, !b.editori || b.editori.has(e.editore), esc(e.editore),
     `<span class="acc">${esc(e.account || '')}</span>`)).join('') : '<p class="nota" style="padding:6px;">Nessun editore trovato.</p>';
   $('f-editori-conta').textContent = `${b.editori ? tutti.filter(e => b.editori.has(e.editore)).length : tutti.length} di ${tutti.length}`;
-  // Applica solo con almeno un giorno, un movimento, un importo e un editore
+  controllaBozza();
+}
+// Applica solo con almeno un giorno, un movimento, un importo, un editore e un cliente
+function controllaBozza(){
+  const b = an.b;
   const err = !b.date.size ? 'Scegli almeno un giorno.' : !b.mov.size ? 'Scegli fornito, reso o entrambi.'
-    : !b.imp.size ? 'Scegli lordo, netto o entrambi.' : !tutti.some(e => !b.editori || b.editori.has(e.editore)) ? 'Scegli almeno un editore.' : '';
+    : !b.imp.size ? 'Scegli lordo, netto o entrambi.' : !editoriBozza().some(e => !b.editori || b.editori.has(e.editore)) ? 'Scegli almeno un editore.'
+    : !clientiFino(b, LIVELLI.length).length ? 'Scegli almeno un cliente.' : '';
   $('f-errore').textContent = err;
   $('f-applica').disabled = !!err;
 }
@@ -653,6 +759,7 @@ function disegnaRiepilogo(){
     chip('Per ' + f.grana),
     f.account ? chip(esc(nAcc === 1 ? 'Account: ' + nomeAccount([...f.account][0]) : `${nAcc} account`), 'account') : '',
     f.editori ? chip(esc('Editori: ' + descrizioneEditori()), 'editori') : '',
+    ...LIVELLI.map(l => f[l.k] ? chip(esc(`${l.nome}: ${descrizioneLivello(l)}`), l.k) : ''),
     an.ean ? chip(esc('Titolo: ' + (an.titoloEan || an.ean)), 'ean') : '',
     an.selGrafico.size ? chip(esc('Sul grafico: ' + descrizioneSelezione()), 'grafico') : '',
   ].join('');
@@ -660,6 +767,7 @@ function disegnaRiepilogo(){
     if (x.dataset.togli === 'grafico') { an.selGrafico.clear(); aggiornaDettaglio(); return; }
     if (x.dataset.togli === 'account') an.f.account = null;
     if (x.dataset.togli === 'editori') an.f.editori = null;
+    if (LIVELLI.some(l => l.k === x.dataset.togli)) { an.f[x.dataset.togli] = null; aggiornaAnalisi(); return; }
     an.ean = null; aggiornaAnalisi();
   });
 }
@@ -678,7 +786,7 @@ async function aggiornaAnalisi(){
   const n = ++an.richiesta;
   if (an.b) chiudiPannello();
   disegnaRiepilogo();
-  const anda = await rpc('msg_analisi_andamento', { p_date: dateScelte(), p_editori: filtroEditori(), p_ean: an.ean, p_grana: an.f.grana });
+  const anda = await rpc('msg_analisi_andamento', { p_date: dateScelte(), p_editori: filtroEditori(), p_ean: an.ean, p_grana: an.f.grana, p_clienti: filtroClienti() });
   if (n !== an.richiesta) return;   // nel frattempo è cambiato un filtro
   an.serie = anda;
   an.selGrafico = new Set([...an.selGrafico].filter(p => anda.some(x => x.periodo === p)));
@@ -690,18 +798,42 @@ async function aggiornaAnalisi(){
   await aggiornaDettaglio(n);
 }
 
-// Indicatori, editori e titoli: sulle barre selezionate nel grafico (le altre si ingrigiscono)
+const TOT_ZERO = () => ({ copie_f: 0, copie_r: 0, netto_f: 0, netto_r: 0, lordo_f: 0, lordo_r: 0 });
+const somma = righe => { const t = TOT_ZERO(); righe.forEach(x => Object.keys(t).forEach(k => t[k] += Number(x[k] || 0))); return t; };
+// Variazione percentuale con segno e colore ("+12,3%")
+const variazione = (a, b) => { if (!b) return ''; const p = (a / b - 1) * 100;
+  return `<span class="${p >= 0 ? 'su' : 'giu'}">${p >= 0 ? '+' : ''}${p.toLocaleString('it-IT', { maximumFractionDigits: 1 })}%</span>`; };
+
+// Indicatori, torta, clienti, editori e titoli: sulle barre selezionate nel grafico (le altre si ingrigiscono),
+// con il confronto sulle stesse date dell'anno precedente
 async function aggiornaDettaglio(n = ++an.richiesta){
   disegnaRiepilogo();
   evidenziaGrafico();
-  const righe = an.selGrafico.size ? an.serie.filter(x => an.selGrafico.has(x.periodo)) : an.serie;
-  const tot = { copie_f: 0, copie_r: 0, netto_f: 0, netto_r: 0, lordo_f: 0, lordo_r: 0 };
-  righe.forEach(x => Object.keys(tot).forEach(k => tot[k] += Number(x[k])));
-  $('a-kpi').innerHTML = valori(tot).map(v => `<div class="kpi"><div class="kpi-l">${esc(v.k || v.l)}</div>
-    <div class="kpi-n">${v.e != null ? fmtEuro0(v.e) : v.n}</div>${v.s ? `<div class="kpi-s">${v.s}</div>` : ''}</div>`).join('');
-  const editori = await rpc('msg_analisi_editori', { p_date: dateDettaglio() });
+  const date = dateDettaglio(), prima = date.map(annoPrima);
+  const filtri = { p_editori: filtroEditori(), p_ean: an.ean, p_clienti: filtroClienti() };
+  // Una richiesta troppo pesante (oltre 8 secondi) non ferma le altre: il suo riquadro lo dice
+  const prova = r => r.catch(e => { console.warn(e); return null; });
+  const [editori, andaPrima, tipi, tipiPrima, clienti] = await Promise.all([
+    prova(rpc('msg_analisi_editori', { p_date: date, p_clienti: filtri.p_clienti })),
+    prova(rpc('msg_analisi_andamento', { p_date: prima, ...filtri, p_grana: 'mese' })),
+    prova(rpc('msg_analisi_tipi', { p_date: date, ...filtri })),
+    prova(rpc('msg_analisi_tipi', { p_date: prima, ...filtri })),
+    prova(rpc('msg_analisi_clienti', { p_date: date, p_livello: an.livello, ...filtri })),
+  ]);
   if (n !== an.richiesta) return;
-  an.elenco = editori;
+  const righe = an.selGrafico.size ? an.serie.filter(x => an.selGrafico.has(x.periodo)) : an.serie;
+  const tot = somma(righe), totPrima = somma(andaPrima || []);
+  const conPrima = !!andaPrima?.length, vp = valori(totPrima);
+  $('a-kpi').innerHTML = valori(tot).map((v, i) => {
+    const p = vp[i], a = v.e ?? v.x, b = p.e ?? p.x;
+    const confronto = !andaPrima ? 'anno prec.: non calcolato' : !conPrima ? 'anno prec.: nessun dato'
+      : v.l === 'Resa' ? `anno prec. ${p.n}` : `anno prec. ${p.e != null ? fmtEuro0(p.e) : p.n} ${variazione(a, b)}`;
+    return `<div class="kpi"><div class="kpi-l">${esc(v.k || v.l)}</div>
+      <div class="kpi-n">${v.e != null ? fmtEuro0(v.e) : v.n}</div>${v.s ? `<div class="kpi-s">${v.s}</div>` : ''}<div class="kpi-s">${confronto}</div></div>`;
+  }).join('');
+  if (tipi) disegnaTipi(tipi, tipiPrima || [], date, prima); else $('a-tipi').innerHTML = TROPPO;
+  if (clienti) disegnaClienti(clienti, tot); else $('a-clienti').innerHTML = TROPPO;
+  an.elenco = editori || [];
   const nomeEd = descrizioneEditori(), quando = descrizioneSelezione();
   // Tabella editori: solo quelli del filtro; nascosta quando se ne guarda uno solo
   const righeEd = editoriFiltrati().slice().sort((x, y) => valoreOrdine(y) - valoreOrdine(x));
@@ -710,12 +842,76 @@ async function aggiornaDettaglio(n = ++an.richiesta){
   $('a-editori').innerHTML = righeEd.length ? tabella(['Editore', 'Account', 'Titoli', ...valori(tot).map(v => v.l)], righeEd.map(e => ({
     attr: `data-editore="${esc(e.editore)}"`,
     celle: [esc(e.editore), `<span class="muto">${esc(e.account || '—')}</span>`, fmtN(e.titoli), ...valori(e).map(v => v.e != null ? fmtEuro(v.e) : v.n)],
-  })), 2) : '<p class="nota">Nessun editore nel periodo con questi filtri.</p>';
+  })), 2) : editori ? '<p class="nota">Nessun editore nel periodo con questi filtri.</p>' : TROPPO;
   $('a-editori').querySelectorAll('[data-editore]').forEach(tr => tr.onclick = () => {
     an.f.editori = new Set([tr.dataset.editore]); an.f.account = null; an.ean = null; aggiornaAnalisi(); window.scrollTo({ top: 0, behavior: 'smooth' });
   });
   $('a-titolo-titoli').textContent = 'Titoli' + (nomeEd ? ' · ' + nomeEd : '') + (quando ? ' · ' + quando : '');
   await caricaTitoli();
+}
+
+const TROPPO = '<p class="err">Calcolo troppo pesante per il periodo e i filtri scelti: restringi il periodo o i clienti.</p>';
+
+/* Lanci e rifornimenti. Lancio = bolla di lancio (causale YBA3); rifornimento da novità = titolo uscito
+   da meno di 6 mesi; classico = il resto. Importo: il primo scelto, sul fornito (sul reso se si guarda solo il reso). */
+const TIPI = [['lancio', 'Lanci', 'var(--tipo-lancio)'], ['novita', 'Rifornimento novità', 'var(--tipo-novita)'], ['classico', 'Rifornimento classico', 'var(--tipo-classico)']];
+function disegnaTipi(tipi, tipiPrima, date, prima){
+  const t = importiScelti()[0], suReso = movScelto() === 'R', campo = `${t}_${suReso ? 'r' : 'f'}`;
+  const valore = (righe, tipo) => Number(righe.find(r => r.tipo === tipo)?.[campo] || 0);
+  const ora = TIPI.map(([k]) => valore(tipi, k)), prec = TIPI.map(([k]) => valore(tipiPrima, k));
+  const totOra = ora.reduce((a, b) => a + b, 0), totPrec = prec.reduce((a, b) => a + b, 0);
+  const nomeMisura = `${NOME_IMPORTO[t]} ${suReso ? 'reso' : 'fornito'}`;
+  $('a-titolo-tipi').textContent = 'Lanci e rifornimenti · ' + nomeMisura;
+  $('a-legenda-tipi').innerHTML = TIPI.map(([, nome, c]) => `<span><i style="background:${c}"></i>${nome}</span>`).join('');
+  const estremi = d => d.length ? (d.length === 1 ? fmtGiorno(d[0]) : `${fmtGiorno(d[0])} – ${fmtGiorno(d[d.length - 1])}`) : '';
+  $('a-sub-tipi').textContent = `Confronto con le stesse date dell'anno precedente (${estremi(prima)}).`;
+  const quota = (v, tot) => tot ? (v / tot * 100).toLocaleString('it-IT', { maximumFractionDigits: 1 }) + '%' : '—';
+  $('a-tipi').innerHTML = ciambella(ora, totOra, 'Periodo', estremi(date)) + ciambella(prec, totPrec, 'Anno precedente', totPrec ? estremi(prima) : 'nessun dato')
+    + `<div class="tbl-wrap" style="max-height:none;"><table>
+      <tr><th></th><th class="num">${esc(nomeMisura)}</th><th class="num">Quota</th><th class="num">Anno prec.</th><th class="num">Quota</th><th class="num">Variazione</th></tr>
+      ${TIPI.map(([, nome, c], i) => `<tr><td style="white-space:nowrap"><i style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${c};margin-right:8px;"></i>${nome}</td>
+        <td class="num">${fmtEuro(ora[i])}</td><td class="num">${quota(ora[i], totOra)}</td>
+        <td class="num">${totPrec ? fmtEuro(prec[i]) : '—'}</td><td class="num">${quota(prec[i], totPrec)}</td><td class="num">${variazione(ora[i], prec[i])}</td></tr>`).join('')}
+      <tr><td><b>Totale</b></td><td class="num"><b>${fmtEuro(totOra)}</b></td><td></td><td class="num"><b>${totPrec ? fmtEuro(totPrec) : '—'}</b></td><td></td><td class="num">${variazione(totOra, totPrec)}</td></tr>
+    </table></div>`;
+}
+// Ciambella SVG: un arco per tipo, totale al centro, descrizione sotto
+function ciambella(valori, tot, titolo, sotto){
+  const r = 70, circ = 2 * Math.PI * r;
+  let pos = 0;
+  const archi = tot > 0 ? valori.map((v, i) => {
+    const l = v / tot * circ, arco = `<circle cx="95" cy="95" r="${r}" fill="none" stroke="${TIPI[i][2]}" stroke-width="26"
+      stroke-dasharray="${Math.max(0, l - (v < tot ? 1.5 : 0))} ${circ}" stroke-dashoffset="${-pos}" transform="rotate(-90 95 95)"><title>${TIPI[i][1]}: ${fmtEuro(v)}</title></circle>`;
+    pos += l; return v > 0 ? arco : '';
+  }).join('') : `<circle cx="95" cy="95" r="${r}" fill="none" stroke="var(--griglia)" stroke-width="26" />`;
+  return `<div class="torta"><div class="t-tit">${esc(titolo)}</div>
+    <svg viewBox="0 0 190 190" role="img" aria-label="${esc(titolo)}: ${TIPI.map(([, nome], i) => `${nome} ${fmtEuro(valori[i])}`).join(', ')}">${archi}
+      <text class="t-tot" x="95" y="96" text-anchor="middle">${tot > 0 ? fmtEuro0(tot) : '—'}</text>
+      <text class="t-cap" x="95" y="114" text-anchor="middle">totale</text></svg>
+    <div class="t-sub">${esc(sotto)}</div></div>`;
+}
+
+/* Clienti per canale, categoria, gruppo o singolo cliente. Clic su una riga: la filtra e scende di livello */
+const LIVELLI_TAB = [['canale', 'Canale', 'canali'], ['categoria', 'Categoria', 'categorie'], ['gruppo', 'Gruppo cliente', 'gruppi'], ['cliente', 'Cliente', 'clienti']];
+function disegnaClienti(righe, tot){
+  $('a-livello').innerHTML = LIVELLI_TAB.map(([v, t]) => `<label><input type="radio" name="a-livello" value="${v}"${an.livello === v ? ' checked' : ''}>${t}</label>`).join('');
+  $('a-livello').querySelectorAll('input').forEach(c => c.onchange = () => { an.livello = c.value; aggiornaDettaglio(); });
+  const quando = descrizioneSelezione(), i = LIVELLI_TAB.findIndex(l => l[0] === an.livello), [, nome, k] = LIVELLI_TAB[i];
+  $('a-titolo-clienti').textContent = 'Clienti per ' + nome.toLowerCase() + (quando ? ' · ' + quando : '');
+  const ordinate = righe.slice().sort((x, y) => valoreOrdine(y) - valoreOrdine(x)).slice(0, 500);
+  const intest = [nome, an.livello === 'cliente' ? 'Città · gruppo' : i === 0 ? 'Gruppo canale' : 'Livello sopra', ...(an.livello === 'cliente' ? [] : ['Clienti']), ...valori(tot).map(v => v.l)];
+  $('a-clienti').innerHTML = ordinate.length ? tabella(intest, ordinate.map(r => ({
+    attr: `data-chiave="${esc(r.chiave)}"`,
+    celle: [esc(r.nome), `<span class="muto">${esc(r.dettaglio || '')}</span>`, ...(an.livello === 'cliente' ? [] : [fmtN(r.clienti)]),
+      ...valori(r).map(v => v.e != null ? fmtEuro(v.e) : v.n)],
+  })), 2) + (righe.length > 500 ? `<p class="nota" style="margin-top:6px;">I primi 500 di ${fmtN(righe.length)}.</p>` : '')
+    : '<p class="nota">Nessun cliente nel periodo con questi filtri.</p>';
+  $('a-clienti').querySelectorAll('[data-chiave]').forEach(tr => tr.onclick = () => {
+    an.f[k] = new Set([tr.dataset.chiave]);
+    LIVELLI.slice(LIVELLI.findIndex(l => l.k === k) + 1).forEach(l => an.f[l.k] = null);
+    if (i < LIVELLI_TAB.length - 1) an.livello = LIVELLI_TAB[i + 1][0];
+    aggiornaAnalisi();
+  });
 }
 
 // Barre selezionate sul grafico, in parole ("19/10/26", "3 giorni", "settimana dal 12/10/26")
@@ -729,7 +925,9 @@ function descrizioneSelezione(){
 
 async function caricaTitoli(){
   const n = an.richiesta;
-  const titoli = await rpc('msg_analisi_titoli', { p_date: dateDettaglio(), p_editori: filtroEditori(), p_cerca: $('a-cerca').value.trim() || null, p_limite: 300, p_ordine: chiaveOrdine() });
+  let titoli;
+  try { titoli = await rpc('msg_analisi_titoli', { p_date: dateDettaglio(), p_editori: filtroEditori(), p_cerca: $('a-cerca').value.trim() || null, p_limite: 300, p_ordine: chiaveOrdine(), p_clienti: filtroClienti() }); }
+  catch (e) { if (n === an.richiesta) $('a-titoli').innerHTML = TROPPO; return; }
   if (n !== an.richiesta) return;
   const t0 = importiScelti()[0], m = movScelto();
   $('a-sub-titoli').textContent = `I primi 300 per ${t0} ${m === 'F' ? 'fornito' : m === 'R' ? 'reso' : '(fornito − reso)'}. Clic su un titolo per vederne l'andamento.`;
@@ -1163,7 +1361,7 @@ async function eliminaFileSftp(files){
    a blocchi con le RPC msg_import_*. Reimportare lo stesso file sostituisce i dati precedenti. */
 const PPSV_LUNGHEZZA = 813;
 const BLOCCO_IMPORT = 3000;
-const numeroPpsv = nome => { const m = /^PPSVMAGG\.(\d+)$/i.exec(nome || ''); return m ? Number(m[1]) : null; };
+const numeroPpsv = nome => { const m = /^PPSVMAGG\.?(\d+)$/i.exec(nome || ''); return m ? Number(m[1]) : null; };
 const campo = (r, a, b) => r.slice(a - 1, b).trim();
 const intero = (r, a, b) => {
   const s = campo(r, a, b);
