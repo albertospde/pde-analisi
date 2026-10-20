@@ -158,6 +158,9 @@ html[data-theme="light"]{ --serie-1:#2a78d6; --serie-2:#eb6834; --griglia:rgba(2
 .legenda i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px;}
 .grafico{position:relative;width:100%;height:280px;}
 .grafico svg{display:block;width:100%;height:100%;}
+.grafico rect[data-i]{cursor:pointer;}
+.grafico [data-barre]{transition:opacity .15s;}
+.grafico .spenta{opacity:.2;filter:grayscale(1);}
 .grafico .asse{font-size:11px;fill:var(--muted);font-variant-numeric:tabular-nums;}
 .tooltip{position:absolute;pointer-events:none;background:var(--card-2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:12px;box-shadow:var(--shadow);white-space:nowrap;z-index:5;}
 .tooltip b{font-variant-numeric:tabular-nums;}
@@ -249,10 +252,11 @@ td.muto{color:var(--muted);}
       <div class="card">
         <div class="viz-testa"><h2 id="a-titolo-grafico">Copie fornite e rese</h2>
           <div class="legenda" id="a-legenda"></div></div>
+        <p class="sub">Clic su una barra per vedere sotto solo quel periodo; riclicca per tornare a tutto. Ctrl+clic per sceglierne più d'uno.</p>
         <div id="a-grafico" class="grafico"></div>
       </div>
       <div class="card" id="a-card-editori">
-        <h2>Editori</h2>
+        <h2 id="a-titolo-editori">Editori</h2>
         <p class="sub">Clic su un editore per vederne andamento e titoli.</p>
         <div id="a-editori"></div>
       </div>
@@ -413,7 +417,7 @@ function disegnaCollane(){
    account: null = tutti, altrimenti Set (NESSUN_ACCOUNT = editori senza account)
    editori: null = tutti gli editori degli account scelti, altrimenti Set di nomi */
 const NESSUN_ACCOUNT = '-';
-const an = { giorni: [], tuttiEditori: [], elenco: [], f: null, b: null, ean: null, titoloEan: null, pronto: false, richiesta: 0 };
+const an = { giorni: [], tuttiEditori: [], elenco: [], selGrafico: new Set(), f: null, b: null, ean: null, titoloEan: null, pronto: false, richiesta: 0 };
 const isoGiorno = d => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
 const piuGiorni = (iso, n) => { const d = new Date(iso + 'T12:00:00'); d.setDate(d.getDate() + n); return isoGiorno(d); };
 const fmtGiorno = iso => new Date(iso + 'T12:00:00').toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: '2-digit' });
@@ -444,8 +448,8 @@ function giorniDaRegola(r){
   if (r?.mesi) return new Set(an.giorni.filter(g => r.mesi.includes(g.slice(0, 7))));
   return null;
 }
-// All'apertura: l'ultimo giorno importato, in lordo (come Tableau)
-const filtriIniziali = () => ({ date: giorniRapido('ultimo'), regola: { rapido: 'ultimo' }, mov: new Set(['F', 'R']), imp: new Set(['lordo']), grana: 'giorno', account: null, editori: null });
+// All'apertura: il mese in corso giorno per giorno, in lordo (come Tableau)
+const filtriIniziali = () => ({ date: giorniRapido('mese'), regola: { rapido: 'mese' }, mov: new Set(['F', 'R']), imp: new Set(['lordo']), grana: 'giorno', account: null, editori: null });
 const copiaFiltri = f => ({ ...f, date: new Set(f.date), mov: new Set(f.mov), imp: new Set(f.imp), account: f.account && new Set(f.account), editori: f.editori && new Set(f.editori) });
 
 // Editori ammessi da account ed editori scelti (f = filtri applicati o bozza)
@@ -519,7 +523,7 @@ function preparaPannello(){
     // Tutti gli account / tutti gli editori visibili spuntati = nessun filtro
     if (b.account && b.account.size === tuttiAccount().length) b.account = null;
     if (b.editori && editoriBozza().every(e => b.editori.has(e.editore))) b.editori = null;
-    an.f = b; an.ean = null;
+    an.f = b; an.ean = null; an.selGrafico = new Set();
     chiudiPannello();
     aggiornaAnalisi();
   };
@@ -650,40 +654,59 @@ function disegnaRiepilogo(){
     f.account ? chip(esc(nAcc === 1 ? 'Account: ' + nomeAccount([...f.account][0]) : `${nAcc} account`), 'account') : '',
     f.editori ? chip(esc('Editori: ' + descrizioneEditori()), 'editori') : '',
     an.ean ? chip(esc('Titolo: ' + (an.titoloEan || an.ean)), 'ean') : '',
+    an.selGrafico.size ? chip(esc('Sul grafico: ' + descrizioneSelezione()), 'grafico') : '',
   ].join('');
   $('f-riepilogo').querySelectorAll('[data-togli]').forEach(x => x.onclick = () => {
+    if (x.dataset.togli === 'grafico') { an.selGrafico.clear(); aggiornaDettaglio(); return; }
     if (x.dataset.togli === 'account') an.f.account = null;
     if (x.dataset.togli === 'editori') an.f.editori = null;
     an.ean = null; aggiornaAnalisi();
   });
 }
 
+// Periodo del grafico a cui appartiene un giorno (lunedì per le settimane, primo del mese per i mesi)
+function periodoDi(g){
+  if (an.f.grana === 'mese') return g.slice(0, 8) + '01';
+  if (an.f.grana === 'settimana') return piuGiorni(g, -((new Date(g + 'T12:00:00').getDay() + 6) % 7));
+  return g;
+}
+// Giorni del dettaglio (indicatori e tabelle): quelli delle barre selezionate sul grafico, altrimenti tutti
+const dateDettaglio = () => an.selGrafico.size ? dateScelte().filter(g => an.selGrafico.has(periodoDi(g))) : dateScelte();
+
+// Grafico sul periodo dei filtri, poi il dettaglio
 async function aggiornaAnalisi(){
   const n = ++an.richiesta;
-  const date = dateScelte();
   if (an.b) chiudiPannello();
   disegnaRiepilogo();
-  const editori = await rpc('msg_analisi_editori', { p_date: date });
+  const anda = await rpc('msg_analisi_andamento', { p_date: dateScelte(), p_editori: filtroEditori(), p_ean: an.ean, p_grana: an.f.grana });
   if (n !== an.richiesta) return;   // nel frattempo è cambiato un filtro
-  an.elenco = editori;
-  const anda = await rpc('msg_analisi_andamento', { p_date: date, p_editori: filtroEditori(), p_ean: an.ean, p_grana: an.f.grana });
-  if (n !== an.richiesta) return;
-  const nomeEd = descrizioneEditori();
-
-  const tot = { copie_f: 0, copie_r: 0, netto_f: 0, netto_r: 0, lordo_f: 0, lordo_r: 0 };
-  anda.forEach(x => Object.keys(tot).forEach(k => tot[k] += Number(x[k])));
-  $('a-kpi').innerHTML = valori(tot).map(v => `<div class="kpi"><div class="kpi-l">${esc(v.k || v.l)}</div>
-    <div class="kpi-n">${v.e != null ? fmtEuro0(v.e) : v.n}</div>${v.s ? `<div class="kpi-s">${v.s}</div>` : ''}</div>`).join('');
-  const mov = movScelto();
+  an.serie = anda;
+  an.selGrafico = new Set([...an.selGrafico].filter(p => anda.some(x => x.periodo === p)));
+  const mov = movScelto(), nomeEd = descrizioneEditori();
   $('a-titolo-grafico').textContent = `Copie ${mov === 'F' ? 'fornite' : mov === 'R' ? 'rese' : 'fornite e rese'}${an.ean ? ' · ' + (an.titoloEan || an.ean) : nomeEd ? ' · ' + nomeEd : ''}`;
   $('a-legenda').innerHTML = (mov !== 'R' ? '<span><i style="background:var(--serie-1)"></i>Fornite</span>' : '')
     + (mov !== 'F' ? '<span><i style="background:var(--serie-2)"></i>Rese</span>' : '');
-  an.serie = anda;
   disegnaGrafico(anda);
+  await aggiornaDettaglio(n);
+}
 
+// Indicatori, editori e titoli: sulle barre selezionate nel grafico (le altre si ingrigiscono)
+async function aggiornaDettaglio(n = ++an.richiesta){
+  disegnaRiepilogo();
+  evidenziaGrafico();
+  const righe = an.selGrafico.size ? an.serie.filter(x => an.selGrafico.has(x.periodo)) : an.serie;
+  const tot = { copie_f: 0, copie_r: 0, netto_f: 0, netto_r: 0, lordo_f: 0, lordo_r: 0 };
+  righe.forEach(x => Object.keys(tot).forEach(k => tot[k] += Number(x[k])));
+  $('a-kpi').innerHTML = valori(tot).map(v => `<div class="kpi"><div class="kpi-l">${esc(v.k || v.l)}</div>
+    <div class="kpi-n">${v.e != null ? fmtEuro0(v.e) : v.n}</div>${v.s ? `<div class="kpi-s">${v.s}</div>` : ''}</div>`).join('');
+  const editori = await rpc('msg_analisi_editori', { p_date: dateDettaglio() });
+  if (n !== an.richiesta) return;
+  an.elenco = editori;
+  const nomeEd = descrizioneEditori(), quando = descrizioneSelezione();
   // Tabella editori: solo quelli del filtro; nascosta quando se ne guarda uno solo
   const righeEd = editoriFiltrati().slice().sort((x, y) => valoreOrdine(y) - valoreOrdine(x));
   $('a-card-editori').classList.toggle('hidden', righeEd.length <= 1 && !!filtroEditori());
+  $('a-titolo-editori').textContent = 'Editori' + (quando ? ' · ' + quando : '');
   $('a-editori').innerHTML = righeEd.length ? tabella(['Editore', 'Account', 'Titoli', ...valori(tot).map(v => v.l)], righeEd.map(e => ({
     attr: `data-editore="${esc(e.editore)}"`,
     celle: [esc(e.editore), `<span class="muto">${esc(e.account || '—')}</span>`, fmtN(e.titoli), ...valori(e).map(v => v.e != null ? fmtEuro(v.e) : v.n)],
@@ -691,13 +714,22 @@ async function aggiornaAnalisi(){
   $('a-editori').querySelectorAll('[data-editore]').forEach(tr => tr.onclick = () => {
     an.f.editori = new Set([tr.dataset.editore]); an.f.account = null; an.ean = null; aggiornaAnalisi(); window.scrollTo({ top: 0, behavior: 'smooth' });
   });
-  $('a-titolo-titoli').textContent = nomeEd ? `Titoli · ${nomeEd}` : 'Titoli';
+  $('a-titolo-titoli').textContent = 'Titoli' + (nomeEd ? ' · ' + nomeEd : '') + (quando ? ' · ' + quando : '');
   await caricaTitoli();
+}
+
+// Barre selezionate sul grafico, in parole ("19/10/26", "3 giorni", "settimana dal 12/10/26")
+function descrizioneSelezione(){
+  const s = [...an.selGrafico].sort();
+  if (!s.length) return '';
+  const g = an.f.grana, unita = { giorno: ['giorno', 'giorni'], settimana: ['settimana', 'settimane'], mese: ['mese', 'mesi'] }[g];
+  if (s.length > 1) return `${s.length} ${unita[1]}`;
+  return g === 'mese' ? nomeMese(s[0].slice(0, 7)) : g === 'settimana' ? `settimana dal ${fmtGiorno(s[0])}` : fmtGiorno(s[0]);
 }
 
 async function caricaTitoli(){
   const n = an.richiesta;
-  const titoli = await rpc('msg_analisi_titoli', { p_date: dateScelte(), p_editori: filtroEditori(), p_cerca: $('a-cerca').value.trim() || null, p_limite: 300, p_ordine: chiaveOrdine() });
+  const titoli = await rpc('msg_analisi_titoli', { p_date: dateDettaglio(), p_editori: filtroEditori(), p_cerca: $('a-cerca').value.trim() || null, p_limite: 300, p_ordine: chiaveOrdine() });
   if (n !== an.richiesta) return;
   const t0 = importiScelti()[0], m = movScelto();
   $('a-sub-titoli').textContent = `I primi 300 per ${t0} ${m === 'F' ? 'fornito' : m === 'R' ? 'reso' : '(fornito − reso)'}. Clic su un titolo per vederne l'andamento.`;
@@ -756,8 +788,8 @@ function disegnaGrafico(dati){
   const ogni = Math.max(1, Math.ceil(dati.length / Math.floor(w / 64)));
   dati.forEach((d, i) => {
     const cx = m.s + banda * i + banda / 2;
-    html += due ? barra(cx - larg - 1, Number(d.copie_f), 'var(--serie-1)') + barra(cx + 1, Number(d.copie_r), 'var(--serie-2)')
-      : barra(cx - larg / 2, Number(conF ? d.copie_f : d.copie_r), conF ? 'var(--serie-1)' : 'var(--serie-2)');
+    html += `<g data-barre="${i}">` + (due ? barra(cx - larg - 1, Number(d.copie_f), 'var(--serie-1)') + barra(cx + 1, Number(d.copie_r), 'var(--serie-2)')
+      : barra(cx - larg / 2, Number(conF ? d.copie_f : d.copie_r), conF ? 'var(--serie-1)' : 'var(--serie-2)')) + '</g>';
     if (i % ogni === 0) html += `<text class="asse" x="${cx}" y="${H - 8}" text-anchor="middle">${fmtGiorno(d.periodo)}</text>`;
     html += `<rect data-i="${i}" x="${m.s + banda * i}" y="${m.a}" width="${banda}" height="${h}" fill="transparent" />`;
   });
@@ -792,7 +824,20 @@ function disegnaGrafico(dati){
       tip.style.top = '8px';
     };
     r.onpointerleave = () => tip.classList.add('hidden');
+    // Clic: solo questa barra (o la toglie se era scelta); Ctrl/Cmd+clic: aggiunge o toglie
+    r.onclick = ev => {
+      const p = dati[Number(r.dataset.i)].periodo, s = an.selGrafico;
+      if (ev.ctrlKey || ev.metaKey || s.has(p)) s.has(p) ? s.delete(p) : s.add(p);
+      else { s.clear(); s.add(p); }
+      aggiornaDettaglio();
+    };
   });
+  evidenziaGrafico();
+}
+// Con barre selezionate, le altre si ingrigiscono
+function evidenziaGrafico(){
+  const s = an.selGrafico;
+  $('a-grafico').querySelectorAll('[data-barre]').forEach(g => g.classList.toggle('spenta', s.size > 0 && !s.has(an.serie[Number(g.dataset.barre)]?.periodo)));
 }
 document.querySelectorAll('.nav-btn').forEach(b => b.onclick = () => mostraVista(b.dataset.view));
 
