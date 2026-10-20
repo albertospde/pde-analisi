@@ -117,19 +117,37 @@ html[data-theme="light"]{ --serie-1:#2a78d6; --serie-2:#eb6834; --griglia:rgba(2
 .filtri select{padding:8px 10px;}
 .chip-filtro{display:inline-flex;align-items:center;gap:8px;background:var(--card-2);border:1px solid var(--border);border-radius:20px;padding:4px 6px 4px 12px;font-size:13px;margin:0 8px 12px 0;}
 .chip-filtro button{background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:0 6px;}
-/* Scelta multipla degli editori: le spunte valgono solo con "Applica" */
-.multi{position:relative;}
-.multi-btn{background:var(--input);border:1px solid var(--border);border-radius:7px;padding:8px 28px 8px 10px;text-align:left;cursor:pointer;min-width:220px;max-width:320px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;position:relative;}
-.multi-btn::after{content:'▾';position:absolute;right:10px;color:var(--muted);}
-.multi-btn:focus{outline:none;border-color:var(--blu);}
-.multi-pannello{position:absolute;top:100%;left:0;margin-top:4px;z-index:15;width:340px;max-width:calc(100vw - 32px);background:var(--card);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow);padding:10px;}
-.multi-azioni{display:flex;gap:6px;margin:8px 0;}
-.multi-lista{max-height:300px;overflow-y:auto;border-top:1px solid var(--border);border-bottom:1px solid var(--border);padding:4px 0;}
-.multi-lista label{display:flex;align-items:center;gap:8px;padding:5px 4px;font-size:13px;cursor:pointer;border-radius:5px;text-transform:none;letter-spacing:0;font-weight:400;color:var(--text);}
-.multi-lista label:hover{background:var(--card-2);}
-.multi-lista .acc{margin-left:auto;font-size:11px;color:var(--muted);}
-.multi-piede{display:flex;gap:6px;align-items:center;margin-top:8px;}
-.multi-piede .nota{margin-right:auto;}
+/* Pannello filtri a scomparsa: riquadri con scelta multipla, un solo "Applica" */
+.filtri-barra{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;margin-bottom:12px;}
+.f-riepilogo{display:flex;flex-wrap:wrap;gap:6px;flex:1 1 300px;}
+.f-riepilogo .chip-filtro{margin:0;}
+.f-riepilogo .chip-filtro.semplice{padding:4px 12px;}
+.f-cerca{flex:0 1 260px;min-width:200px;}
+.pannello-filtri{padding:14px 16px;}
+.f-griglia{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px;}
+.f-box{border:1px solid var(--border);border-radius:10px;padding:10px 12px;background:var(--card-2);min-width:0;display:flex;flex-direction:column;gap:8px;}
+.f-largo{grid-column:span 2;}
+@media (max-width:620px){ .f-largo{grid-column:auto;} }
+.f-testa{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);}
+.f-conta{font-weight:400;text-transform:none;letter-spacing:0;}
+.f-az{margin-left:auto;display:flex;gap:4px;}
+.f-scelte{display:flex;flex-wrap:wrap;gap:6px;}
+.f-scelte label{display:inline-flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:13px;cursor:pointer;}
+.f-scelte label:has(input:checked){border-color:var(--blu);}
+.f-rapidi{display:flex;flex-wrap:wrap;gap:4px;}
+.f-rapidi .btn.attivo{border-color:var(--blu);color:var(--blu);}
+.f-dalal{display:flex;flex-wrap:wrap;gap:6px 10px;}
+.f-dalal label{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);}
+.f-dalal input[type=date]{background:var(--input);border:1px solid var(--border);border-radius:7px;padding:5px 8px;}
+.f-lista{max-height:150px;overflow-y:auto;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:4px;}
+.f-lista.f-alta{max-height:240px;}
+.f-lista label{display:flex;align-items:center;gap:8px;padding:4px 6px;font-size:13px;cursor:pointer;border-radius:5px;min-width:0;}
+.f-lista label:hover{background:var(--card-2);}
+.f-lista .acc{margin-left:auto;font-size:11px;color:var(--muted);padding-left:8px;}
+.f-colonne{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));column-gap:8px;align-content:start;}
+.f-mese-tit{grid-column:1/-1;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;padding:6px 6px 2px;}
+.f-piede{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:flex-end;margin-top:12px;}
+.f-piede .err{margin-right:auto;min-height:0;}
 .kpi-riga{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:16px;}
 .kpi{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 16px;}
 .kpi-l{font-size:12px;color:var(--muted);}
@@ -194,41 +212,37 @@ td.muto{color:var(--muted);}
 <main>
   <!-- Schermata vuota: qui arriveranno le analisi sui dati Messaggerie -->
   <section id="view-analisi">
-    <div class="filtri">
-      <div class="field"><label for="a-periodo">Periodo</label>
-        <select id="a-periodo">
-          <option value="ultimo">Ultimo giorno disponibile</option>
-          <option value="7">Ultimi 7 giorni</option>
-          <option value="30" selected>Ultimi 30 giorni</option>
-          <option value="mese">Mese in corso</option>
-          <option value="anno">Anno in corso</option>
-          <option value="tutto">Tutto</option>
-          <option value="libero">Date a scelta</option>
-        </select></div>
-      <div class="field"><label for="a-mese">Mese</label><select id="a-mese"><option value="">—</option></select></div>
-      <div class="field"><label for="a-da">Dal</label><input type="date" id="a-da"></div>
-      <div class="field"><label for="a-a">Al</label><input type="date" id="a-a"></div>
-      <div class="field" style="min-width:160px;"><label for="a-mov">Movimento</label>
-        <select id="a-mov"><option value="FR">Fornito e reso</option><option value="F">Solo fornito</option><option value="R">Solo reso</option></select></div>
-      <div class="field" style="min-width:140px;"><label for="a-importo">Importo</label>
-        <select id="a-importo"><option value="netto">Netto</option><option value="lordo">Lordo</option><option value="entrambi">Netto e lordo</option></select></div>
-      <div class="field"><label for="a-grana">Raggruppa per</label>
-        <select id="a-grana"><option value="giorno">Giorno</option><option value="settimana">Settimana</option><option value="mese">Mese</option></select></div>
-      <div class="field" style="min-width:180px;"><label for="a-account">Account editore</label><select id="a-account"><option value="">Tutti gli account</option></select></div>
-      <div class="field multi" style="min-width:220px;"><label for="a-editori-btn">Editori</label>
-        <button type="button" class="multi-btn" id="a-editori-btn" aria-haspopup="true" aria-expanded="false">Tutti gli editori</button>
-        <div class="multi-pannello hidden" id="a-editori-pannello">
-          <input type="text" id="a-editori-cerca" placeholder="Cerca editore…">
-          <div class="multi-azioni"><button type="button" class="btn btn-sec btn-sm" id="a-editori-tutti">Seleziona tutti</button>
-            <button type="button" class="btn btn-sec btn-sm" id="a-editori-nessuno">Deseleziona tutti</button></div>
-          <div class="multi-lista" id="a-editori-lista"></div>
-          <div class="multi-piede"><span class="nota" id="a-editori-conta"></span>
-            <button type="button" class="btn btn-sec btn-sm" id="a-editori-annulla">Annulla</button>
-            <button type="button" class="btn btn-primary btn-sm" id="a-editori-applica">Applica</button></div>
-        </div></div>
-      <div class="field" style="min-width:220px;"><label for="a-cerca">Titolo o EAN</label><input type="text" id="a-cerca" placeholder="Cerca…"></div>
+    <!-- Filtri: barra con il riepilogo; il pannello si apre e si chiude. Le scelte nel pannello
+         valgono solo con "Applica" (Annulla le scarta). -->
+    <div class="filtri-barra">
+      <button type="button" class="btn btn-sec" id="f-apri" aria-expanded="false" aria-controls="f-pannello">⚙ Filtri <span id="f-freccia">▾</span></button>
+      <div id="f-riepilogo" class="f-riepilogo"></div>
+      <div class="f-cerca"><input type="text" id="a-cerca" placeholder="Cerca titolo o EAN…" aria-label="Cerca titolo o EAN"></div>
     </div>
-    <div id="a-chip"></div>
+    <div class="card pannello-filtri hidden" id="f-pannello">
+      <div class="f-griglia">
+        <div class="f-box"><div class="f-testa"><span>Movimento</span></div><div class="f-scelte" id="f-mov"></div></div>
+        <div class="f-box"><div class="f-testa"><span>Importo</span></div><div class="f-scelte" id="f-imp"></div></div>
+        <div class="f-box"><div class="f-testa"><span>Raggruppa per</span></div><div class="f-scelte" id="f-grana"></div></div>
+        <div class="f-box"><div class="f-testa"><span>Periodo rapido</span></div><div class="f-rapidi" id="f-rapidi"></div>
+          <div class="f-dalal"><label>Dal <input type="date" id="a-da"></label><label>Al <input type="date" id="a-a"></label></div></div>
+        <div class="f-box"><div class="f-testa"><span>Mesi</span><span class="f-conta" id="f-mesi-conta"></span></div><div class="f-lista" id="f-mesi"></div></div>
+        <div class="f-box f-largo"><div class="f-testa"><span>Giorni</span><span class="f-conta" id="f-giorni-conta"></span>
+            <span class="f-az"><button type="button" class="btn btn-sec btn-sm" data-tutti="giorni">Tutti</button><button type="button" class="btn btn-sec btn-sm" data-nessuno="giorni">Nessuno</button></span></div>
+          <div class="f-lista f-alta f-colonne" id="f-giorni"></div></div>
+        <div class="f-box"><div class="f-testa"><span>Account editore</span><span class="f-conta" id="f-account-conta"></span>
+            <span class="f-az"><button type="button" class="btn btn-sec btn-sm" data-tutti="account">Tutti</button><button type="button" class="btn btn-sec btn-sm" data-nessuno="account">Nessuno</button></span></div>
+          <div class="f-lista f-alta" id="f-account"></div></div>
+        <div class="f-box f-largo"><div class="f-testa"><span>Editori</span><span class="f-conta" id="f-editori-conta"></span>
+            <span class="f-az"><button type="button" class="btn btn-sec btn-sm" data-tutti="editori">Tutti</button><button type="button" class="btn btn-sec btn-sm" data-nessuno="editori">Nessuno</button></span></div>
+          <input type="text" id="f-editori-cerca" placeholder="Cerca editore…" aria-label="Cerca editore">
+          <div class="f-lista f-alta f-colonne" id="f-editori"></div></div>
+      </div>
+      <div class="f-piede"><span class="err" id="f-errore"></span>
+        <button type="button" class="btn btn-sec" id="f-azzera">Azzera filtri</button>
+        <button type="button" class="btn btn-sec" id="f-annulla">Annulla</button>
+        <button type="button" class="btn btn-primary" id="f-applica">Applica</button></div>
+    </div>
     <div id="a-vuoto" class="empty hidden"><div class="big">📊</div><p>Nessun dato importato. Importa i file PPSVMAGG da <a href="#sftp" id="a-vai-sftp">SFTP Messaggerie</a>.</p></div>
     <div id="a-contenuto">
       <div class="kpi-riga" id="a-kpi"></div>
@@ -392,31 +406,62 @@ function disegnaCollane(){
 /* ═════════ ANALISI: vendite e rese per editore e titolo nel tempo ═════════
    Legge i riepiloghi giornalieri (msg_editore_giorno / msg_titolo_giorno) tramite le RPC
    msg_analisi_*: la pagina riceve solo i totali. Data = data del documento Messaggerie. */
-// account: null = tutti, NESSUN_ACCOUNT = editori senza account; sel: null = tutti gli editori (dell'account), altrimenti Set di nomi
+/* Filtri. Quelli applicati sono in an.f, la bozza del pannello aperto in an.b (stessa forma):
+   date: Set di giorni 'AAAA-MM-GG' (unico filtro sul periodo: scorciatoie, dal-al e mesi spuntano i giorni)
+   regola: come riaggiornare i giorni quando arrivano nuovi file ({ rapido: '30' } o { mesi: [...] }, null = giorni fissi)
+   mov: Set di 'F'/'R'; imp: Set di 'lordo'/'netto'; grana: 'giorno'|'settimana'|'mese'
+   account: null = tutti, altrimenti Set (NESSUN_ACCOUNT = editori senza account)
+   editori: null = tutti gli editori degli account scelti, altrimenti Set di nomi */
 const NESSUN_ACCOUNT = '-';
-const an = { periodo: null, account: null, sel: null, elenco: [], bozza: null, ean: null, titoloEan: null, pronto: false, richiesta: 0 };
-const delAccount = e => !an.account || (an.account === NESSUN_ACCOUNT ? !e.account : e.account === an.account);
-const editoriVisibili = () => an.elenco.filter(delAccount);
-const editoriFiltrati = () => editoriVisibili().filter(e => !an.sel || an.sel.has(e.editore));
-// Elenco da passare alle RPC: null = nessun filtro sugli editori
-const filtroEditori = () => !an.account && !an.sel ? null : editoriFiltrati().map(e => e.editore);
-const nomeAccount = a => a === NESSUN_ACCOUNT ? 'senza account' : a;
-function descrizioneEditori(){
-  const f = editoriFiltrati();
-  if (!an.sel) return an.account ? `account ${nomeAccount(an.account)}` : '';
-  return f.length === 1 ? f[0].editore : `${f.length} editori`;
-}
+const an = { giorni: [], tuttiEditori: [], elenco: [], f: null, b: null, ean: null, titoloEan: null, pronto: false, richiesta: 0 };
 const isoGiorno = d => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
 const piuGiorni = (iso, n) => { const d = new Date(iso + 'T12:00:00'); d.setDate(d.getDate() + n); return isoGiorno(d); };
 const fmtGiorno = iso => new Date(iso + 'T12:00:00').toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: '2-digit' });
 const fmtPerc = (r, f) => f > 0 ? (r / f * 100).toLocaleString('it-IT', { maximumFractionDigits: 1 }) + '%' : '—';
 const fmtEuro0 = n => Number(n).toLocaleString('it-IT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
-const fineMese = mese => isoGiorno(new Date(Number(mese.slice(0, 4)), Number(mese.slice(5, 7)), 0));
+const nomeMese = m => new Date(m + '-01T12:00:00').toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
+const nomeAccount = a => a === NESSUN_ACCOUNT ? 'Senza account' : a;
+const accountDi = e => e.account || NESSUN_ACCOUNT;
 
-/* Movimento (F, R o FR = entrambi, separati) e importo (netto, lordo o entrambi) scelti nei filtri.
-   Lordo = copie × prezzo di copertina (come Tableau); netto = importo dopo gli sconti ai clienti. */
-const movScelto = () => $('a-mov').value;
-const importiScelti = () => $('a-importo').value === 'entrambi' ? ['lordo', 'netto'] : [$('a-importo').value];
+const RAPIDI = [['ultimo', 'Ultimo giorno'], ['7', 'Ultimi 7 giorni'], ['30', 'Ultimi 30 giorni'], ['mese', 'Mese in corso'], ['anno', 'Anno in corso'], ['tutto', 'Tutto']];
+// Le scorciatoie partono dall'ultimo giorno importato, non da oggi
+function giorniRapido(v){
+  const al = an.giorni[an.giorni.length - 1];
+  const da = v === 'ultimo' ? al : v === '7' ? piuGiorni(al, -6) : v === '30' ? piuGiorni(al, -29)
+    : v === 'mese' ? al.slice(0, 8) + '01' : v === 'anno' ? al.slice(0, 4) + '-01-01' : '0000';
+  return new Set(an.giorni.filter(g => g >= da));
+}
+const mesiDisponibili = () => [...new Set(an.giorni.map(g => g.slice(0, 7)))].reverse();
+const giorniDelMese = m => an.giorni.filter(g => g.startsWith(m));
+// Se i giorni scelti sono esattamente dei mesi interi, la regola segue quei mesi
+function regolaMesi(date){
+  const mesi = mesiDisponibili().filter(m => giorniDelMese(m).every(g => date.has(g)));
+  const n = mesi.reduce((s, m) => s + giorniDelMese(m).length, 0);
+  return mesi.length && n === date.size ? { mesi } : null;
+}
+function giorniDaRegola(r){
+  if (r?.rapido) return giorniRapido(r.rapido);
+  if (r?.mesi) return new Set(an.giorni.filter(g => r.mesi.includes(g.slice(0, 7))));
+  return null;
+}
+const filtriIniziali = () => ({ date: giorniRapido('30'), regola: { rapido: '30' }, mov: new Set(['F', 'R']), imp: new Set(['netto']), grana: 'giorno', account: null, editori: null });
+const copiaFiltri = f => ({ ...f, date: new Set(f.date), mov: new Set(f.mov), imp: new Set(f.imp), account: f.account && new Set(f.account), editori: f.editori && new Set(f.editori) });
+
+// Editori ammessi da account ed editori scelti (f = filtri applicati o bozza)
+const editoreAmmesso = (f, e) => (!f.account || f.account.has(accountDi(e))) && (!f.editori || f.editori.has(e.editore));
+// Elenco da passare alle RPC: null = nessun filtro sugli editori
+const filtroEditori = () => !an.f.account && !an.f.editori ? null : an.tuttiEditori.filter(e => editoreAmmesso(an.f, e)).map(e => e.editore);
+const editoriFiltrati = () => an.elenco.filter(e => editoreAmmesso(an.f, e));
+function descrizioneEditori(){
+  if (!an.f.account && !an.f.editori) return '';
+  const f = an.tuttiEditori.filter(e => editoreAmmesso(an.f, e));
+  return f.length === 1 ? f[0].editore : `${f.length} editori`;
+}
+const dateScelte = () => [...an.f.date].sort();
+
+/* Movimento e importo: lordo = copie × prezzo di copertina (come Tableau); netto = importo dopo gli sconti ai clienti */
+const movScelto = () => an.f.mov.size === 2 ? 'FR' : [...an.f.mov][0];
+const importiScelti = () => ['lordo', 'netto'].filter(t => an.f.imp.has(t));
 const NOME_IMPORTO = { lordo: 'Lordo', netto: 'Netto' };
 // Colonne / indicatori per un oggetto con copie_f, copie_r, netto_f, netto_r, lordo_f, lordo_r
 function valori(x){
@@ -437,94 +482,192 @@ const chiaveOrdine = () => importiScelti()[0] + ({ F: '_f', R: '_r', FR: '' })[m
 const valoreOrdine = x => { const t = importiScelti()[0], m = movScelto();
   return m === 'F' ? Number(x[t + '_f']) : m === 'R' ? Number(x[t + '_r']) : Number(x[t + '_f']) - Number(x[t + '_r']); };
 
-// Mesi con dati, dal più recente; l'ultimo arriva fino all'ultimo giorno importato
-function preparaMesi(){
-  const mesi = [];
-  for (let m = an.periodo.al.slice(0, 7); m >= an.periodo.dal.slice(0, 7); m = piuGiorni(m + '-01', -1).slice(0, 7)) mesi.push(m);
-  const scelto = $('a-mese').value;
-  $('a-mese').innerHTML = '<option value="">—</option>' + mesi.map(m => {
-    const nome = new Date(m + '-01T12:00:00').toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
-    const parziale = fineMese(m) > an.periodo.al ? ` (fino al ${fmtGiorno(an.periodo.al)})` : '';
-    return `<option value="${m}"${m === scelto ? ' selected' : ''}>${nome}${parziale}</option>`;
-  }).join('');
-}
-function applicaMese(){
-  const m = $('a-mese').value;
-  if (!m) return;
-  $('a-da').value = m + '-01' < an.periodo.dal ? an.periodo.dal : m + '-01';
-  $('a-a').value = fineMese(m) > an.periodo.al ? an.periodo.al : fineMese(m);
-}
-
 async function avviaAnalisi(){
   if (!an.pronto) {
     an.pronto = true;
-    $('a-periodo').onchange = () => { $('a-mese').value = ''; applicaPeriodo(); aggiornaAnalisi(); };
-    $('a-mese').onchange = () => { if ($('a-mese').value) { $('a-periodo').value = 'libero'; applicaMese(); aggiornaAnalisi(); } };
-    // Dal dopo Al (o Al prima di Dal): l'altra data segue quella appena scelta
-    $('a-da').onchange = () => { if ($('a-da').value > $('a-a').value) $('a-a').value = $('a-da').value; dateCambiate(); };
-    $('a-a').onchange = () => { if ($('a-a').value < $('a-da').value) $('a-da').value = $('a-a').value; dateCambiate(); };
-    const dateCambiate = () => { $('a-periodo').value = 'libero'; $('a-mese').value = ''; aggiornaAnalisi(); };
-    $('a-mov').onchange = $('a-importo').onchange = aggiornaAnalisi;
-    $('a-grana').onchange = aggiornaAnalisi;
-    $('a-account').onchange = () => { an.account = $('a-account').value || null; an.sel = null; an.ean = null; aggiornaAnalisi(); };
-    preparaSceltaEditori();
+    preparaPannello();
     let attesa;
     $('a-cerca').oninput = () => { clearTimeout(attesa); attesa = setTimeout(caricaTitoli, 350); };
     $('a-vai-sftp').onclick = e => { e.preventDefault(); mostraVista('sftp'); };
     window.addEventListener('resize', () => { if (an.serie) disegnaGrafico(an.serie); });
   }
-  const per = (await rpc('msg_analisi_periodo', {}))?.[0];
-  an.periodo = per && per.dal ? per : null;
-  $('a-vuoto').classList.toggle('hidden', !!an.periodo);
-  $('a-contenuto').classList.toggle('hidden', !an.periodo);
-  if (!an.periodo) return;
-  $('a-da').min = $('a-a').min = an.periodo.dal;
-  $('a-da').max = $('a-a').max = an.periodo.al;
-  preparaMesi();
-  // Con un mese o una scorciatoia scelti, i nuovi file importati allungano il periodo
-  if ($('a-mese').value) applicaMese(); else applicaPeriodo();
+  an.giorni = (await rpc('msg_analisi_date', {})).map(r => r.data);
+  $('a-vuoto').classList.toggle('hidden', an.giorni.length > 0);
+  $('a-contenuto').classList.toggle('hidden', !an.giorni.length);
+  if (!an.giorni.length) return;
+  // Editori e account di tutto il periodo disponibile, per le liste del pannello
+  an.tuttiEditori = await rpc('msg_analisi_elenco_editori', {});
+  if (!an.f) an.f = filtriIniziali();
+  else {
+    // Scorciatoia o mesi interi: i nuovi file importati allungano il periodo
+    const nuovi = giorniDaRegola(an.f.regola);
+    an.f.date = nuovi || new Set([...an.f.date].filter(g => an.giorni.includes(g)));
+  }
+  if (!an.f.date.size) an.f = filtriIniziali();
   await aggiornaAnalisi();
 }
 
-// Le scorciatoie partono dall'ultimo giorno importato, non da oggi
-function applicaPeriodo(){
-  const p = $('a-periodo').value, al = an.periodo.al, dal = an.periodo.dal;
-  if (p === 'libero') return;
-  const da = p === 'ultimo' ? al : p === '7' ? piuGiorni(al, -6) : p === '30' ? piuGiorni(al, -29)
-    : p === 'mese' ? al.slice(0, 8) + '01' : p === 'anno' ? al.slice(0, 4) + '-01-01' : dal;
-  $('a-da').value = da < dal ? dal : da;
-  $('a-a').value = al;
+/* ── Pannello filtri ── */
+function preparaPannello(){
+  const p = $('f-pannello');
+  $('f-apri').onclick = () => p.classList.contains('hidden') ? apriPannello() : chiudiPannello();
+  $('f-annulla').onclick = chiudiPannello;
+  $('f-azzera').onclick = () => { an.b = filtriIniziali(); disegnaPannello(); };
+  $('f-applica').onclick = () => {
+    const b = an.b;
+    // Tutti gli account / tutti gli editori visibili spuntati = nessun filtro
+    if (b.account && b.account.size === tuttiAccount().length) b.account = null;
+    if (b.editori && editoriBozza().every(e => b.editori.has(e.editore))) b.editori = null;
+    an.f = b; an.ean = null;
+    chiudiPannello();
+    aggiornaAnalisi();
+  };
+  $('f-editori-cerca').oninput = disegnaEditori;
+  // Un solo gestore per tutte le spunte del pannello (data-k = quale filtro, value = valore)
+  p.addEventListener('change', e => {
+    const c = e.target, k = c.dataset.k, b = an.b;
+    if (!k || !b) return;
+    if (k === 'mov' || k === 'imp') c.checked ? b[k].add(c.value) : b[k].delete(c.value);
+    if (k === 'grana') b.grana = c.value;
+    if (k === 'giorno') { c.checked ? b.date.add(c.value) : b.date.delete(c.value); b.regola = regolaMesi(b.date); }
+    if (k === 'mese') { giorniDelMese(c.value).forEach(g => c.checked ? b.date.add(g) : b.date.delete(g)); b.regola = regolaMesi(b.date); }
+    if (k === 'account') {
+      if (!b.account) b.account = new Set(tuttiAccount());
+      c.checked ? b.account.add(c.value) : b.account.delete(c.value);
+      // Con una scelta di editori attiva, gli editori dell'account aggiunto entrano spuntati
+      if (b.editori && c.checked) an.tuttiEditori.filter(x => accountDi(x) === c.value).forEach(x => b.editori.add(x.editore));
+    }
+    if (k === 'editore') {
+      if (!b.editori) b.editori = new Set(editoriBozza().map(x => x.editore));
+      c.checked ? b.editori.add(c.value) : b.editori.delete(c.value);
+    }
+    disegnaPannello();
+  });
+  p.addEventListener('click', e => {
+    const t = e.target.closest('[data-tutti],[data-nessuno],[data-rapido]');
+    if (!t || !an.b) return;
+    const b = an.b, tutti = !!t.dataset.tutti, quale = t.dataset.tutti || t.dataset.nessuno;
+    if (t.dataset.rapido) { b.date = giorniRapido(t.dataset.rapido); b.regola = { rapido: t.dataset.rapido }; }
+    if (quale === 'giorni') { b.date = tutti ? new Set(an.giorni) : new Set(); b.regola = tutti ? { rapido: 'tutto' } : null; }
+    if (quale === 'account') b.account = tutti ? null : new Set();
+    if (quale === 'editori') {
+      // Con una ricerca attiva vale per gli editori mostrati
+      if (!b.editori) b.editori = new Set(editoriBozza().map(x => x.editore));
+      editoriMostrati().forEach(x => tutti ? b.editori.add(x.editore) : b.editori.delete(x.editore));
+    }
+    disegnaPannello();
+  });
+  // Dal/Al: spuntano i giorni dell'intervallo; se uno supera l'altro, l'altro lo segue
+  const intervallo = quale => {
+    let da = $('a-da').value, a = $('a-a').value;
+    if (!da || !a) return;
+    if (da > a) { if (quale === 'da') a = da; else da = a; }
+    an.b.date = new Set(an.giorni.filter(g => g >= da && g <= a));
+    an.b.regola = regolaMesi(an.b.date);
+    disegnaPannello(da, a);
+  };
+  $('a-da').onchange = () => intervallo('da');
+  $('a-a').onchange = () => intervallo('a');
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && an.b) chiudiPannello(); });
+}
+function apriPannello(){
+  an.b = copiaFiltri(an.f);
+  $('f-editori-cerca').value = '';
+  $('f-pannello').classList.remove('hidden');
+  $('f-apri').setAttribute('aria-expanded', 'true');
+  $('f-freccia').textContent = '▴';
+  disegnaPannello();
+}
+function chiudiPannello(){
+  an.b = null;
+  $('f-pannello').classList.add('hidden');
+  $('f-apri').setAttribute('aria-expanded', 'false');
+  $('f-freccia').textContent = '▾';
+}
+const tuttiAccount = () => [...new Set(an.tuttiEditori.map(accountDi))].sort((x, y) => x === NESSUN_ACCOUNT ? 1 : y === NESSUN_ACCOUNT ? -1 : x.localeCompare(y, 'it'));
+// Editori degli account scelti nella bozza, e quelli che passano la ricerca
+const editoriBozza = () => an.tuttiEditori.filter(e => !an.b.account || an.b.account.has(accountDi(e))).sort((x, y) => x.editore.localeCompare(y.editore, 'it'));
+const editoriMostrati = () => { const q = $('f-editori-cerca').value.trim().toUpperCase(); return editoriBozza().filter(e => !q || e.editore.includes(q)); };
+const spunta = (k, v, si, testo, extra = '') => `<label><input type="checkbox" data-k="${k}" value="${esc(v)}"${si ? ' checked' : ''}><span>${testo}</span>${extra}</label>`;
+const scelta = (k, v, si, testo) => `<label><input type="radio" name="f-${k}" data-k="${k}" value="${v}"${si ? ' checked' : ''}>${testo}</label>`;
+
+function disegnaPannello(da, a){
+  const b = an.b;
+  $('f-mov').innerHTML = spunta('mov', 'F', b.mov.has('F'), 'Fornito') + spunta('mov', 'R', b.mov.has('R'), 'Reso');
+  $('f-imp').innerHTML = spunta('imp', 'lordo', b.imp.has('lordo'), 'Lordo') + spunta('imp', 'netto', b.imp.has('netto'), 'Netto');
+  $('f-grana').innerHTML = [['giorno', 'Giorno'], ['settimana', 'Settimana'], ['mese', 'Mese']].map(([v, t]) => scelta('grana', v, b.grana === v, t)).join('');
+  $('f-rapidi').innerHTML = RAPIDI.map(([v, t]) => `<button type="button" class="btn btn-sec btn-sm${b.regola?.rapido === v ? ' attivo' : ''}" data-rapido="${v}">${t}</button>`).join('');
+  const scelti = [...b.date].sort();
+  $('a-da').min = $('a-a').min = an.giorni[0];
+  $('a-da').max = $('a-a').max = an.giorni[an.giorni.length - 1];
+  $('a-da').value = da || scelti[0] || '';
+  $('a-a').value = a || scelti[scelti.length - 1] || '';
+  // Mesi: spuntati se interi, "a metà" se solo alcuni giorni
+  const mesi = mesiDisponibili();
+  $('f-mesi').innerHTML = mesi.map(m => {
+    const g = giorniDelMese(m), n = g.filter(x => b.date.has(x)).length;
+    return `<label><input type="checkbox" data-k="mese" value="${m}"${n === g.length ? ' checked' : ''}${n && n < g.length ? ' data-meta="1"' : ''}><span>${nomeMese(m)}</span><span class="acc">${g.length} gg</span></label>`;
+  }).join('');
+  $('f-mesi').querySelectorAll('[data-meta]').forEach(c => c.indeterminate = true);
+  $('f-mesi-conta').textContent = `${mesi.filter(m => giorniDelMese(m).every(g => b.date.has(g))).length} di ${mesi.length}`;
+  const sett = d => new Date(d + 'T12:00:00').toLocaleDateString('it-IT', { weekday: 'short' });
+  $('f-giorni').innerHTML = mesi.map(m => `<div class="f-mese-tit">${nomeMese(m)}</div>`
+    + giorniDelMese(m).slice().reverse().map(g => spunta('giorno', g, b.date.has(g), `${sett(g)} ${fmtGiorno(g)}`)).join('')).join('');
+  $('f-giorni-conta').textContent = `${b.date.size} di ${an.giorni.length}`;
+  const acc = tuttiAccount();
+  $('f-account').innerHTML = acc.map(x => spunta('account', x, !b.account || b.account.has(x), esc(nomeAccount(x)),
+    `<span class="acc">${an.tuttiEditori.filter(e => accountDi(e) === x).length}</span>`)).join('');
+  $('f-account-conta').textContent = `${b.account ? b.account.size : acc.length} di ${acc.length}`;
+  disegnaEditori();
+}
+function disegnaEditori(){
+  const b = an.b, tutti = editoriBozza(), mostrati = editoriMostrati();
+  $('f-editori').innerHTML = mostrati.length ? mostrati.map(e => spunta('editore', e.editore, !b.editori || b.editori.has(e.editore), esc(e.editore),
+    `<span class="acc">${esc(e.account || '')}</span>`)).join('') : '<p class="nota" style="padding:6px;">Nessun editore trovato.</p>';
+  $('f-editori-conta').textContent = `${b.editori ? tutti.filter(e => b.editori.has(e.editore)).length : tutti.length} di ${tutti.length}`;
+  // Applica solo con almeno un giorno, un movimento, un importo e un editore
+  const err = !b.date.size ? 'Scegli almeno un giorno.' : !b.mov.size ? 'Scegli fornito, reso o entrambi.'
+    : !b.imp.size ? 'Scegli lordo, netto o entrambi.' : !tutti.some(e => !b.editori || b.editori.has(e.editore)) ? 'Scegli almeno un editore.' : '';
+  $('f-errore').textContent = err;
+  $('f-applica').disabled = !!err;
+}
+
+// Riepilogo dei filtri applicati, con ✕ per togliere account, editori e titolo
+function disegnaRiepilogo(){
+  const f = an.f, d = dateScelte();
+  const chip = (t, togli) => `<span class="chip-filtro${togli ? '' : ' semplice'}">${t}${togli ? `<button data-togli="${togli}" aria-label="Togli il filtro">✕</button>` : ''}</span>`;
+  const rapido = RAPIDI.find(([v]) => v === f.regola?.rapido);
+  const periodo = rapido ? rapido[1] : f.regola?.mesi ? f.regola.mesi.slice().sort().map(nomeMese).join(', ')
+    : d.length === 1 ? fmtGiorno(d[0]) : `${d.length} giorni scelti`;
+  const estremi = d.length > 1 ? ` · ${fmtGiorno(d[0])} – ${fmtGiorno(d[d.length - 1])}` : rapido ? ` · ${fmtGiorno(d[0])}` : '';
+  const nAcc = f.account ? f.account.size : 0;
+  $('f-riepilogo').innerHTML = [
+    chip(esc(periodo + estremi)),
+    chip(movScelto() === 'FR' ? 'Fornito e reso' : movScelto() === 'F' ? 'Solo fornito' : 'Solo reso'),
+    chip(importiScelti().map((t, i) => i ? t : NOME_IMPORTO[t]).join(' e ')),
+    chip('Per ' + f.grana),
+    f.account ? chip(esc(nAcc === 1 ? 'Account: ' + nomeAccount([...f.account][0]) : `${nAcc} account`), 'account') : '',
+    f.editori ? chip(esc('Editori: ' + descrizioneEditori()), 'editori') : '',
+    an.ean ? chip(esc('Titolo: ' + (an.titoloEan || an.ean)), 'ean') : '',
+  ].join('');
+  $('f-riepilogo').querySelectorAll('[data-togli]').forEach(x => x.onclick = () => {
+    if (x.dataset.togli === 'account') an.f.account = null;
+    if (x.dataset.togli === 'editori') an.f.editori = null;
+    an.ean = null; aggiornaAnalisi();
+  });
 }
 
 async function aggiornaAnalisi(){
   const n = ++an.richiesta;
-  const da = $('a-da').value, a = $('a-a').value;
-  if (!da || !a) return;
-  // Prima l'elenco degli editori del periodo: serve a tradurre account e scelta in nomi da filtrare
-  const editori = await rpc('msg_analisi_editori', { p_da: da, p_a: a });
+  const date = dateScelte();
+  if (an.b) chiudiPannello();
+  disegnaRiepilogo();
+  const editori = await rpc('msg_analisi_editori', { p_date: date });
   if (n !== an.richiesta) return;   // nel frattempo è cambiato un filtro
   an.elenco = editori;
-  const anda = await rpc('msg_analisi_andamento', { p_da: da, p_a: a, p_editori: filtroEditori(), p_ean: an.ean, p_grana: $('a-grana').value });
+  const anda = await rpc('msg_analisi_andamento', { p_date: date, p_editori: filtroEditori(), p_ean: an.ean, p_grana: an.f.grana });
   if (n !== an.richiesta) return;
-
-  // Account del periodo nel filtro (mantiene la scelta)
-  const account = [...new Set(editori.map(e => e.account).filter(Boolean))].sort((x, y) => x.localeCompare(y, 'it'));
-  $('a-account').innerHTML = '<option value="">Tutti gli account</option>'
-    + account.map(x => `<option value="${esc(x)}"${x === an.account ? ' selected' : ''}>${esc(x)}</option>`).join('')
-    + (editori.some(e => !e.account) ? `<option value="${NESSUN_ACCOUNT}"${an.account === NESSUN_ACCOUNT ? ' selected' : ''}>Senza account</option>` : '');
-  aggiornaBottoneEditori();
-
   const nomeEd = descrizioneEditori();
-  $('a-chip').innerHTML = [
-    an.account ? `<span class="chip-filtro">Account: ${esc(nomeAccount(an.account))}<button data-togli="account" aria-label="Togli il filtro account">✕</button></span>` : '',
-    an.sel ? `<span class="chip-filtro">Editori: ${esc(nomeEd)}<button data-togli="editori" aria-label="Togli il filtro editori">✕</button></span>` : '',
-    an.ean ? `<span class="chip-filtro">Titolo: ${esc(an.titoloEan || an.ean)}<button data-togli="ean" aria-label="Togli il filtro titolo">✕</button></span>` : '',
-  ].join('');
-  $('a-chip').querySelectorAll('[data-togli]').forEach(b => b.onclick = () => {
-    if (b.dataset.togli === 'account') { an.account = null; an.sel = null; }
-    if (b.dataset.togli === 'editori') an.sel = null;
-    an.ean = null; aggiornaAnalisi();
-  });
 
   const tot = { copie_f: 0, copie_r: 0, netto_f: 0, netto_r: 0, lordo_f: 0, lordo_r: 0 };
   anda.forEach(x => Object.keys(tot).forEach(k => tot[k] += Number(x[k])));
@@ -545,7 +688,7 @@ async function aggiornaAnalisi(){
     celle: [esc(e.editore), `<span class="muto">${esc(e.account || '—')}</span>`, fmtN(e.titoli), ...valori(e).map(v => v.e != null ? fmtEuro(v.e) : v.n)],
   })), 2) : '<p class="nota">Nessun editore nel periodo con questi filtri.</p>';
   $('a-editori').querySelectorAll('[data-editore]').forEach(tr => tr.onclick = () => {
-    an.sel = new Set([tr.dataset.editore]); an.ean = null; aggiornaAnalisi(); window.scrollTo({ top: 0, behavior: 'smooth' });
+    an.f.editori = new Set([tr.dataset.editore]); an.f.account = null; an.ean = null; aggiornaAnalisi(); window.scrollTo({ top: 0, behavior: 'smooth' });
   });
   $('a-titolo-titoli').textContent = nomeEd ? `Titoli · ${nomeEd}` : 'Titoli';
   await caricaTitoli();
@@ -553,7 +696,7 @@ async function aggiornaAnalisi(){
 
 async function caricaTitoli(){
   const n = an.richiesta;
-  const titoli = await rpc('msg_analisi_titoli', { p_da: $('a-da').value, p_a: $('a-a').value, p_editori: filtroEditori(), p_cerca: $('a-cerca').value.trim() || null, p_limite: 300, p_ordine: chiaveOrdine() });
+  const titoli = await rpc('msg_analisi_titoli', { p_date: dateScelte(), p_editori: filtroEditori(), p_cerca: $('a-cerca').value.trim() || null, p_limite: 300, p_ordine: chiaveOrdine() });
   if (n !== an.richiesta) return;
   const t0 = importiScelti()[0], m = movScelto();
   $('a-sub-titoli').textContent = `I primi 300 per ${t0} ${m === 'F' ? 'fornito' : m === 'R' ? 'reso' : '(fornito − reso)'}. Clic su un titolo per vederne l'andamento.`;
@@ -564,73 +707,6 @@ async function caricaTitoli(){
   $('a-titoli').querySelectorAll('[data-ean]').forEach(tr => tr.onclick = () => {
     an.ean = tr.dataset.ean; an.titoloEan = tr.dataset.titolo; aggiornaAnalisi(); window.scrollTo({ top: 0, behavior: 'smooth' });
   });
-}
-
-/* Scelta multipla degli editori (dell'account scelto). Le spunte vanno in una bozza: la pagina
-   cambia solo con "Applica"; "Annulla", Esc o un clic fuori dal pannello le scartano. */
-function aggiornaBottoneEditori(){
-  const vis = editoriVisibili(), f = editoriFiltrati();
-  $('a-editori-btn').textContent = !an.sel || f.length === vis.length ? (an.account ? 'Tutti gli editori dell\'account' : 'Tutti gli editori')
-    : f.length === 1 ? f[0].editore : `${f.length} editori su ${vis.length}`;
-}
-
-function disegnaListaEditori(){
-  const cerca = $('a-editori-cerca').value.trim().toUpperCase();
-  const vis = editoriVisibili().slice().sort((x, y) => x.editore.localeCompare(y.editore, 'it'));
-  const mostrati = vis.filter(e => !cerca || e.editore.includes(cerca));
-  $('a-editori-lista').innerHTML = mostrati.length ? mostrati.map(e => `<label><input type="checkbox" data-ed="${esc(e.editore)}"${an.bozza.has(e.editore) ? ' checked' : ''}>
-    <span>${esc(e.editore)}</span><span class="acc">${esc(e.account || '')}</span></label>`).join('') : '<p class="nota" style="padding:6px 4px;">Nessun editore trovato.</p>';
-  $('a-editori-lista').querySelectorAll('[data-ed]').forEach(c => c.onchange = () => {
-    if (c.checked) an.bozza.add(c.dataset.ed); else an.bozza.delete(c.dataset.ed);
-    contaBozza();
-  });
-  contaBozza();
-  return mostrati;
-}
-
-function contaBozza(){
-  const vis = editoriVisibili(), scelti = vis.filter(e => an.bozza.has(e.editore)).length;
-  $('a-editori-conta').textContent = `${scelti} di ${vis.length} selezionati`;
-  $('a-editori-applica').disabled = !scelti;
-}
-
-function chiudiSceltaEditori(){
-  $('a-editori-pannello').classList.add('hidden');
-  $('a-editori-btn').setAttribute('aria-expanded', 'false');
-  an.bozza = null;
-}
-
-function preparaSceltaEditori(){
-  $('a-editori-btn').onclick = () => {
-    if (an.bozza) { chiudiSceltaEditori(); return; }
-    an.bozza = new Set(editoriFiltrati().map(e => e.editore));
-    $('a-editori-cerca').value = '';
-    $('a-editori-pannello').classList.remove('hidden');
-    $('a-editori-btn').setAttribute('aria-expanded', 'true');
-    disegnaListaEditori();
-    $('a-editori-cerca').focus();
-  };
-  $('a-editori-cerca').oninput = disegnaListaEditori;
-  // Con una ricerca attiva, "Seleziona/Deseleziona tutti" vale per gli editori mostrati
-  const tutti = aggiungi => {
-    const cerca = $('a-editori-cerca').value.trim().toUpperCase();
-    editoriVisibili().filter(e => !cerca || e.editore.includes(cerca))
-      .forEach(e => aggiungi ? an.bozza.add(e.editore) : an.bozza.delete(e.editore));
-    disegnaListaEditori();
-  };
-  $('a-editori-tutti').onclick = () => tutti(true);
-  $('a-editori-nessuno').onclick = () => tutti(false);
-  $('a-editori-annulla').onclick = chiudiSceltaEditori;
-  $('a-editori-applica').onclick = () => {
-    const vis = editoriVisibili().map(e => e.editore);
-    const scelti = vis.filter(n => an.bozza.has(n));
-    an.sel = scelti.length === vis.length ? null : new Set(scelti);
-    an.ean = null;
-    chiudiSceltaEditori();
-    aggiornaAnalisi();
-  };
-  document.addEventListener('mousedown', e => { if (an.bozza && !e.target.closest('.multi')) chiudiSceltaEditori(); });
-  document.addEventListener('keydown', e => { if (an.bozza && e.key === 'Escape') chiudiSceltaEditori(); });
 }
 
 // Tabella semplice: le prime nTesto colonne sono testo, le altre numeri allineati a destra
@@ -689,7 +765,7 @@ function disegnaGrafico(dati){
   const tip = document.createElement('div');
   tip.className = 'tooltip hidden';
   box.appendChild(tip);
-  const grana = $('a-grana').value;
+  const grana = an.f.grana;
   svg.querySelectorAll('rect[data-i]').forEach(r => {
     r.onpointermove = ev => {
       const d = dati[Number(r.dataset.i)];
