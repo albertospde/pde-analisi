@@ -149,14 +149,20 @@ html[data-theme="light"]{ --serie-1:#2a78d6; --serie-2:#eb6834; --griglia:rgba(2
 /* Lanci e rifornimenti: due ciambelle (periodo e anno precedente) e tabella di confronto */
 :root{ --tipo-lancio:#3987e5; --tipo-novita:#a35ce0; --tipo-classico:#25a88a; --su:#3fb36b; --giu:#ef5b5b; }
 html[data-theme="light"]{ --tipo-lancio:#2a78d6; --tipo-novita:#8a3fd1; --tipo-classico:#16896f; --su:#1f8a4c; --giu:#c62828; }
-.torte{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px 24px;align-items:start;}
+.torte{position:relative;display:flex;flex-wrap:wrap;gap:16px 32px;align-items:center;}
+.torte-coppia{display:flex;flex-wrap:wrap;justify-content:center;gap:12px 20px;flex:0 0 auto;margin:0 auto;}
+.torte .tbl-wrap{flex:1 1 560px;min-width:0;}
+.torte tr[data-i]{cursor:default;transition:opacity .15s;}
+.torte table.evid tr[data-i]:not(.on){opacity:.4;}
 .torta{display:flex;flex-direction:column;align-items:center;gap:6px;}
-.torta svg{width:190px;height:190px;}
+.torta svg{width:200px;height:200px;overflow:visible;}
+.torta .arco{transition:opacity .15s,stroke-width .15s;cursor:pointer;}
+.torta svg.evid .arco:not(.on){opacity:.3;}
+.torta .arco.on{stroke-width:32;}
 .torta .t-tit{font-size:13px;font-weight:600;}
 .torta .t-sub{font-size:12px;color:var(--muted);}
 .torta .t-tot{font-size:17px;font-weight:700;fill:var(--text);font-variant-numeric:tabular-nums;}
 .torta .t-cap{font-size:11px;fill:var(--muted);}
-.torte table{grid-column:1/-1;}
 .su{color:var(--su);} .giu{color:var(--giu);}
 .kpi-s .su,.kpi-s .giu{font-weight:600;}
 #a-livello label{padding:4px 10px;font-size:12px;}
@@ -866,22 +872,55 @@ function disegnaTipi(tipi, tipiPrima, date, prima){
   const estremi = d => d.length ? (d.length === 1 ? fmtGiorno(d[0]) : `${fmtGiorno(d[0])} – ${fmtGiorno(d[d.length - 1])}`) : '';
   $('a-sub-tipi').textContent = `Confronto con le stesse date dell'anno precedente (${estremi(prima)}).`;
   const quota = (v, tot) => tot ? (v / tot * 100).toLocaleString('it-IT', { maximumFractionDigits: 1 }) + '%' : '—';
-  $('a-tipi').innerHTML = ciambella(ora, totOra, 'Periodo', estremi(date)) + ciambella(prec, totPrec, 'Anno precedente', totPrec ? estremi(prima) : 'nessun dato')
+  $('a-tipi').innerHTML = '<div class="torte-coppia">' + ciambella(ora, totOra, 'Anno corrente', estremi(date)) + ciambella(prec, totPrec, 'Anno precedente', totPrec ? estremi(prima) : 'nessun dato') + '</div>'
     + `<div class="tbl-wrap" style="max-height:none;"><table>
       <tr><th></th><th class="num">${esc(nomeMisura)}</th><th class="num">Quota</th><th class="num">Anno prec.</th><th class="num">Quota</th><th class="num">Variazione</th></tr>
-      ${TIPI.map(([, nome, c], i) => `<tr><td style="white-space:nowrap"><i style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${c};margin-right:8px;"></i>${nome}</td>
+      ${TIPI.map(([, nome, c], i) => `<tr data-i="${i}"><td style="white-space:nowrap"><i style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${c};margin-right:8px;"></i>${nome}</td>
         <td class="num">${fmtEuro(ora[i])}</td><td class="num">${quota(ora[i], totOra)}</td>
         <td class="num">${totPrec ? fmtEuro(prec[i]) : '—'}</td><td class="num">${quota(prec[i], totPrec)}</td><td class="num">${variazione(ora[i], prec[i])}</td></tr>`).join('')}
       <tr><td><b>Totale</b></td><td class="num"><b>${fmtEuro(totOra)}</b></td><td></td><td class="num"><b>${totPrec ? fmtEuro(totPrec) : '—'}</b></td><td></td><td class="num">${variazione(totOra, totPrec)}</td></tr>
-    </table></div>`;
+    </table></div><div class="tooltip hidden"></div>`;
+  // Passando sopra uno spicchio (o una riga della tabella): evidenzia il tipo in entrambe le ciambelle e nella tabella,
+  // al centro della ciambella mostra importo e quota, nel riquadro il confronto con l'anno precedente
+  const box = $('a-tipi'), tip = box.querySelector('.tooltip'), svgs = [...box.querySelectorAll('.torta svg')], tab = box.querySelector('table');
+  const evidenzia = i => {
+    svgs.forEach((svg, k) => {
+      svg.classList.toggle('evid', i != null);
+      svg.querySelectorAll('.arco').forEach(a => a.classList.toggle('on', Number(a.dataset.i) === i));
+      const [v, tot] = k ? [prec[i], totPrec] : [ora[i], totOra];
+      svg.querySelector('.t-tot').textContent = i == null || !tot ? (tot > 0 ? fmtEuro0(tot) : '—') : fmtEuro0(v);
+      svg.querySelector('.t-cap').textContent = i == null || !tot ? 'totale' : `${TIPI[i][1].replace('Rifornimento', 'Rif.')} · ${quota(v, tot)}`;
+    });
+    tab.classList.toggle('evid', i != null);
+    tab.querySelectorAll('tr[data-i]').forEach(tr => tr.classList.toggle('on', Number(tr.dataset.i) === i));
+  };
+  box.querySelectorAll('.arco').forEach(a => {
+    a.onpointermove = ev => {
+      const i = Number(a.dataset.i);
+      evidenzia(i);
+      tip.innerHTML = `<div class="tt-riga" style="margin-bottom:4px;"><i style="background:${TIPI[i][2]}"></i><b>${TIPI[i][1]}</b></div>
+        <div>Anno corrente: <b>${fmtEuro(ora[i])}</b> (${quota(ora[i], totOra)})</div>
+        <div>Anno prec.: <b>${totPrec ? fmtEuro(prec[i]) : '—'}</b>${totPrec ? ` (${quota(prec[i], totPrec)})` : ''}</div>
+        <div>Variazione: ${variazione(ora[i], prec[i]) || '—'}</div>`;
+      tip.classList.remove('hidden');
+      const bb = box.getBoundingClientRect(), tw = tip.offsetWidth;
+      tip.style.left = Math.min(Math.max(0, ev.clientX - bb.left + 14), bb.width - tw) + 'px';
+      tip.style.top = Math.max(0, ev.clientY - bb.top + 14) + 'px';
+    };
+    a.onpointerleave = () => { tip.classList.add('hidden'); evidenzia(null); };
+  });
+  tab.querySelectorAll('tr[data-i]').forEach(tr => {
+    tr.onpointerenter = () => evidenzia(Number(tr.dataset.i));
+    tr.onpointerleave = () => evidenzia(null);
+  });
 }
 // Ciambella SVG: un arco per tipo, totale al centro, descrizione sotto
 function ciambella(valori, tot, titolo, sotto){
   const r = 70, circ = 2 * Math.PI * r;
   let pos = 0;
   const archi = tot > 0 ? valori.map((v, i) => {
-    const l = v / tot * circ, arco = `<circle cx="95" cy="95" r="${r}" fill="none" stroke="${TIPI[i][2]}" stroke-width="26"
-      stroke-dasharray="${Math.max(0, l - (v < tot ? 1.5 : 0))} ${circ}" stroke-dashoffset="${-pos}" transform="rotate(-90 95 95)"><title>${TIPI[i][1]}: ${fmtEuro(v)}</title></circle>`;
+    const l = v / tot * circ, arco = `<circle class="arco" data-i="${i}" cx="95" cy="95" r="${r}" fill="none" stroke="${TIPI[i][2]}" stroke-width="26"
+      stroke-dasharray="${Math.max(0, l - (v < tot ? 1.5 : 0))} ${circ}" stroke-dashoffset="${-pos}" transform="rotate(-90 95 95)" />`;
     pos += l; return v > 0 ? arco : '';
   }).join('') : `<circle cx="95" cy="95" r="${r}" fill="none" stroke="var(--griglia)" stroke-width="26" />`;
   return `<div class="torta"><div class="t-tit">${esc(titolo)}</div>
