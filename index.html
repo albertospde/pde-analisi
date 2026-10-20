@@ -535,6 +535,19 @@ function descrizioneLivello(l){
 }
 // Stessa data un anno prima (il 29 febbraio diventa il 28)
 const annoPrima = g => { const [y, m, d] = g.split('-').map(Number); const x = new Date(y - 1, m - 1, d, 12); if (x.getMonth() !== m - 1) x.setDate(0); return isoGiorno(x); };
+// Giorni dell'anno precedente da confrontare, ciascuno col giorno di quest'anno a cui corrisponde: la stessa data
+// dei giorni scelti e, tra due giorni scelti consecutivi fra quelli con dati, anche i giorni di calendario in mezzo
+// (es. 1-19/10/26 → tutto l'1-19/10/25, compresi i venerdì 2025 che nel 2026 sono sabati, come Tableau)
+function datePrima(date){
+  const s = [...date].sort(), pos = new Map(an.giorni.map((g, i) => [g, i])), out = new Map();
+  s.forEach((g, i) => {
+    out.set(annoPrima(g), g);
+    const succ = s[i + 1];
+    if (succ && pos.get(succ) === pos.get(g) + 1)
+      for (let d = piuGiorni(g, 1); d < succ; d = piuGiorni(d, 1)) if (!out.has(annoPrima(d))) out.set(annoPrima(d), d);
+  });
+  return new Map([...out].sort((a, b) => a[0] < b[0] ? -1 : 1));
+}
 
 /* Movimento e importo: lordo = copie × prezzo di copertina (come Tableau); netto = importo dopo gli sconti ai clienti */
 const movScelto = () => an.f.mov.size === 2 ? 'FR' : [...an.f.mov][0];
@@ -798,7 +811,9 @@ async function aggiornaAnalisi(){
   disegnaRiepilogo();
   // Anno precedente giorno per giorno (stessa data), poi sommato nei periodi del grafico di quest'anno
   const filtri = { p_editori: filtroEditori(), p_ean: an.ean, p_clienti: filtroClienti() };
-  const periodoPrima = new Map(dateScelte().map(g => [annoPrima(g), periodoDi(g)]));
+  // (a grana giorno i giorni 2025 senza una barra 2026 corrispondente restano fuori dal grafico)
+  const scelte = new Set(dateScelte());
+  const periodoPrima = new Map([...datePrima(scelte)].map(([p, g]) => [p, an.f.grana === 'giorno' && !scelte.has(g) ? null : periodoDi(g)]));
   const [anda, giorniPrima] = await Promise.all([
     rpc('msg_analisi_andamento', { p_date: dateScelte(), ...filtri, p_grana: an.f.grana }),
     rpc('msg_analisi_andamento', { p_date: [...periodoPrima.keys()], ...filtri, p_grana: 'giorno' }).catch(e => { console.warn(e); return []; }),
@@ -833,7 +848,7 @@ const variazione = (a, b) => { if (!b) return ''; const p = (a / b - 1) * 100;
 async function aggiornaDettaglio(n = ++an.richiesta){
   disegnaRiepilogo();
   evidenziaGrafico();
-  const date = dateDettaglio(), prima = date.map(annoPrima);
+  const date = dateDettaglio(), prima = [...datePrima(date).keys()];
   const filtri = { p_editori: filtroEditori(), p_ean: an.ean, p_clienti: filtroClienti() };
   // Una richiesta troppo pesante (oltre 8 secondi) non ferma le altre: il suo riquadro lo dice
   const prova = r => r.catch(e => { console.warn(e); return null; });
