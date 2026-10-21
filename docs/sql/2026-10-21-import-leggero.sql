@@ -251,4 +251,4 @@ revoke execute on function public._msg_calcola_editori(text[]) from public, anon
 -- pg_cron lavora in UTC. Download SFTP: ogni 10 minuti dalle 3 alle 6 UTC.
 -- Import: ogni 20 minuti dalle 4 alle 9 UTC (6-11 italiane d'estate, 5-10 d'inverno); se non c'è niente esce subito.
 select cron.schedule('msg-import-avvia', '7,27,47 4-9 * * *', $$select public.msg_import_avvia()$$);
-select cron.schedule('msg-editori-settimanale', '0 2 * * 0', $$select public.msg_editori_settimanale()$$);
+select cron.schedule('msg-editori-settimanale', '0 2 * * 0', $$set statement_timeout = '60min'; select public.msg_editori_settimanale()$$);
