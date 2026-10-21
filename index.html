@@ -1594,8 +1594,15 @@ async function importaFile(files){
           passo(`movimenti: ${fmtN(k)} di ${fmtN(p.movimenti.length)}…`);
           await rpc('msg_import_movimenti', { p_file: n, p_righe: p.movimenti.slice(k, k + BLOCCO_IMPORT) });
         }
-        passo('controllo dei totali…');
-        const db = await rpc('msg_import_completa', { p_file: n });
+        // Chiusura in 3 passi, ognuno una chiamata a sé (in una sola andava oltre il tempo massimo)
+        const FASI = { 1: 'totali e clienti…', 2: 'editori e riepiloghi del giorno…', 3: 'riepiloghi del mese…' };
+        let db;
+        for (let k = 1; k; ) {
+          passo(FASI[k]);
+          const r = await rpc('msg_import_chiudi', { p_file: n, p_passo: k });
+          k = r.passo;
+          if (!k) db = r.importazione;
+        }
         const uguali = db.righe_caricate === p.movimenti.length
           && db.copie_fornite === p.tot.F.copie && db.copie_rese === p.tot.R.copie
           && Math.round(db.netto_fornito * 100) === p.tot.F.netto && Math.round(db.netto_reso * 100) === p.tot.R.netto;

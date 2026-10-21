@@ -106,7 +106,13 @@ async function importa(f) {
   for (let k = 0; k < p.movimenti.length; k += BLOCCO) {
     await job("movimenti", { file: f.file, righe: p.movimenti.slice(k, k + BLOCCO) });
   }
-  const db = await job("completa", { file: f.file });
+  // Chiusura in 3 passi (totali e clienti; editori e riepiloghi giornalieri; mesi), ognuno una chiamata a sé
+  let db;
+  for (let passo = 1; passo; ) {
+    const r = await job("chiudi", { file: f.file, passo });
+    passo = r.passo;
+    if (!passo) db = r.importazione;
+  }
 
   // Stesso controllo del tasto "Importa": totali del database = totali del file
   const uguali = db.righe_caricate === p.movimenti.length

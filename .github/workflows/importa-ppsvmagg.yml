@@ -6,6 +6,9 @@ name: Importazione PPSVMAGG del mattino
 # sono più passaggi, su minuti poco affollati, dalle 8 alle 11 italiane con l'ora legale (dalle 7
 # alle 10 con la solare). Lo script parte solo dopo le 8:00 italiane e importa soltanto ciò che
 # manca: se è già tutto dentro, esce in pochi secondi.
+# Dal 21/10/2026 il workflow lo avvia soprattutto Supabase (pg_cron "msg-import-avvia" → msg_import_avvia,
+# ogni 20 minuti dalle 4 alle 9 UTC, solo se ci sono file da importare): l'avvio manuale parte subito.
+# Gli orari qui sotto restano come riserva.
 on:
   schedule:
     - cron: "17 6 * * *"
