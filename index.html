@@ -1595,14 +1595,14 @@ async function importaFile(files){
           await rpc('msg_import_movimenti', { p_file: n, p_righe: p.movimenti.slice(k, k + BLOCCO_IMPORT) });
         }
         // Qui solo i totali per il controllo: editori e riepiloghi li aggiorna il database (pg_cron
-        // msg-import-chiudi, ogni 2 minuti), perché dal browser ogni richiesta ha al massimo 8 secondi
+        // msg-import-chiudi, di notte), perché dal browser ogni richiesta ha al massimo 8 secondi
         passo('controllo dei totali…');
         const db = await rpc('msg_import_da_chiudere', { p_file: n });
         const uguali = db.righe_caricate === p.movimenti.length
           && db.copie_fornite === p.tot.F.copie && db.copie_rese === p.tot.R.copie
           && Math.round(db.netto_fornito * 100) === p.tot.F.netto && Math.round(db.netto_reso * 100) === p.tot.R.netto;
         s.ora = false; s.ok = uguali;
-        s.testo = `${fmtN(p.righeFile)} righe del file → ${fmtN(db.righe_caricate)} nel database · fornite ${fmtN(db.copie_fornite)} copie (${fmtEuro(db.netto_fornito)}) · rese ${fmtN(db.copie_rese)} copie (${fmtEuro(db.netto_reso)})${uguali ? ' · editori e riepiloghi si aggiornano entro pochi minuti' : ' · ⚠ i totali non coincidono con il file'}`;
+        s.testo = `${fmtN(p.righeFile)} righe del file → ${fmtN(db.righe_caricate)} nel database · fornite ${fmtN(db.copie_fornite)} copie (${fmtEuro(db.netto_fornito)}) · rese ${fmtN(db.copie_rese)} copie (${fmtEuro(db.netto_reso)})${uguali ? ' · editori e riepiloghi li aggiorna il database stanotte (dalle 23)' : ' · ⚠ i totali non coincidono con il file'}`;
         if (!uguali) errori++;
       } catch (e) {
         s.ora = false; s.ok = false; s.testo = e.message; errori++;

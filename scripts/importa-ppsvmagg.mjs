@@ -106,13 +106,9 @@ async function importa(f) {
   for (let k = 0; k < p.movimenti.length; k += BLOCCO) {
     await job("movimenti", { file: f.file, righe: p.movimenti.slice(k, k + BLOCCO) });
   }
-  // Chiusura in 3 passi (totali e clienti; editori e riepiloghi giornalieri; mesi), ognuno una chiamata a sé
-  let db;
-  for (let passo = 1; passo; ) {
-    const r = await job("chiudi", { file: f.file, passo });
-    passo = r.passo;
-    if (!passo) db = r.importazione;
-  }
+  // Qui solo i totali per il controllo; editori e riepiloghi li aggiorna di notte il database
+  // (pg_cron msg-import-chiudi): di giorno, col disco lento, la chiusura bloccava tutto il database
+  const db = await job("da-chiudere", { file: f.file });
 
   // Stesso controllo del tasto "Importa": totali del database = totali del file
   const uguali = db.righe_caricate === p.movimenti.length

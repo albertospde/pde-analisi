@@ -122,7 +122,10 @@ as $function$
   order by substring(f.nome_remoto from '(?i)^PPSVMAGG\.?(\d+)$')::int, f.scaricato_il desc;
 $function$;
 
-select cron.schedule('msg-import-chiudi', '*/2 * * * *', $$select public.msg_import_chiudi_in_attesa()$$);
+-- I job di pg_cron su Supabase hanno 2 minuti di statement_timeout: qui se ne danno 30
+-- Solo di notte (21-23 UTC = 23-1:45 italiane): il 21/10 di giorno, col disco a secco, la chiusura ha
+-- bloccato tutto il database (anche PDE Hub e Giro Manager)
+select cron.schedule('msg-import-chiudi', '*/15 21-23 * * *', $$set statement_timeout = '30min'; select public.msg_import_chiudi_in_attesa()$$);
 
 -- Il 293 è caricato (passo 1 fatto dalla pagina): lo chiude il database
 update public.msg_importazioni set stato = 'da chiudere' where file = 293 and stato = 'in corso'
