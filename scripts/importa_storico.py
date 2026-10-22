@@ -13,8 +13,9 @@ Le anagrafiche (titoli, clienti) dello storico non sovrascrivono quelle già pre
 Uso:
   py scripts/importa_storico.py --leggi <file...>     solo lettura e totali, niente database
   py scripts/importa_storico.py <file...>             importa (variabile MSG_IMPORT_CRON_KEY)
-  py scripts/importa_storico.py --solo-movimenti <file...>   carica senza chiudere: la chiusura di un mese
-      intero (editori, riepiloghi) supera il timeout delle API e si fa poi in SQL, una volta per tutti
+  py scripts/importa_storico.py --solo-movimenti <file...>   carica e lascia il mese 'da chiudere': la chiusura
+      di un mese intero (editori, riepiloghi) supera il timeout delle API, la fa di notte pg_cron msg-import-chiudi.
+      Un mese per sera, e mai di giorno (il disco di Supabase ha un budget di I/O limitato)
   py scripts/importa_storico.py --uscite <uscita.csv> <file...>   solo la prima bolla di lancio (YBA3) di ogni
       EAN, per la data di uscita dei titoli lanciati prima dello storico caricato (tabella msg_uscite_storico)
   py scripts/importa_storico.py --giornalieri          reimporta i PPSVMAGG scaricati e non ancora importati
@@ -217,12 +218,18 @@ def importa(percorso):
         job("movimenti", file=numero, righe=p["movimenti"][k:k + BLOCCO])
         print(f"  movimenti {num(min(k + BLOCCO, len(p['movimenti'])))} di {num(len(p['movimenti']))}", end="\r", flush=True)
     if SOLO_MOVIMENTI:
-        # La chiusura (editori e riepiloghi) di un mese intero supera il timeout delle API: si fa poi
-        # una volta sola in SQL. Qui i totali del file, da confrontare con il database.
-        print("\n  TOTALI " + json.dumps({"file": numero, "nome": nome, "movimenti": len(p["movimenti"]),
-              "copie_f": p["tot"]["F"][0], "copie_r": p["tot"]["R"][0], "netto_f": p["tot"]["F"][1], "netto_r": p["tot"]["R"][1]}), flush=True)
-        print(f"  CARICATO {nome} ({round(time.time() - t0)} s)", flush=True)
-        return True
+        # La chiusura (editori e riepiloghi) di un mese intero supera il timeout delle API: qui solo i totali
+        # e lo stato 'da chiudere', poi la chiude di notte pg_cron msg-import-chiudi (un file per passaggio)
+        # e il mattino dopo il workflow lo archivia in Parquet
+        db = job("da-chiudere", file=numero)
+        uguali = (db["righe_caricate"] == len(p["movimenti"]) and db["copie_fornite"] == p["tot"]["F"][0]
+                  and db["copie_rese"] == p["tot"]["R"][0] and round(db["netto_fornito"] * 100) == p["tot"]["F"][1]
+                  and round(db["netto_reso"] * 100) == p["tot"]["R"][1])
+        job("registra", ok=uguali, messaggio=f"Caricato {nome} (storico {numero}): {p['righe']} righe del file → {db['righe_caricate']} nel database, "
+            + ("totali uguali al file, si chiude stanotte" if uguali else "ATTENZIONE: totali diversi dal file"))
+        print(f"\n  {'OK' if uguali else 'KO'} {nome}: totali {'uguali al file' if uguali else 'DIVERSI dal file'}, "
+              f"'da chiudere' ({round(time.time() - t0)} s)", flush=True)
+        return uguali
     db = job("completa", file=numero)
     uguali = (db["righe_caricate"] == len(p["movimenti"]) and db["copie_fornite"] == p["tot"]["F"][0]
               and db["copie_rese"] == p["tot"]["R"][0] and round(db["netto_fornito"] * 100) == p["tot"]["F"][1]
