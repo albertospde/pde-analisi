@@ -1555,9 +1555,146 @@ function leggiPpsvmagg(testo){
 }
 
 async function rpc(nome, args){
+  if (usaParquet(nome, args)) return analisiParquet(nome, args);
+  return rpcDb(nome, args);
+}
+async function rpcDb(nome, args){
   const { data, error } = await sb.rpc(nome, args);
   if (error) throw new Error(`${nome}: ${error.message}`);
   return data;
+}
+
+/* ── Movimenti in Parquet (docs/sql/2026-10-22-parquet.sql) ──
+   I movimenti (giorno × EAN × cliente) non stanno più nel database ma nel bucket msg-parquet, un file per
+   importazione. Le analisi che li usavano (clienti insieme a editore o titolo) li leggono qui con DuckDB:
+   stesse colonne e stessi conti delle RPC msg_analisi_*, che per tutti gli altri filtri usano i riepiloghi. */
+const PQ = { db: null, con: null, file: new Map(), titoli: null };
+function usaParquet(nome, a){
+  const ed = a.p_editori != null || a.p_ean != null, cl = a.p_clienti != null;
+  return nome === 'msg_analisi_andamento' ? cl && ed : nome === 'msg_analisi_clienti' ? ed
+    : nome === 'msg_analisi_editori' ? cl : nome === 'msg_analisi_tipi' ? cl && ed : nome === 'msg_analisi_titoli' ? cl : false;
+}
+const sqlTesto = s => `'${String(s).replace(/'/g, "''")}'`;
+const sqlIn = (col, v) => !v.length ? 'false' : `${col} in (${v.map(sqlTesto).join(',')})`;
+
+async function duckdb(){
+  if (PQ.con) return PQ.con;
+  const d = await import('https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.29.0/+esm');
+  const b = await d.selectBundle(d.getJsDelivrBundles());
+  const w = URL.createObjectURL(new Blob([`importScripts("${b.mainWorker}");`], { type: 'text/javascript' }));
+  PQ.db = new d.AsyncDuckDB(new d.VoidLogger(), new Worker(w));
+  await PQ.db.instantiate(b.mainModule, b.pthreadWorker);
+  URL.revokeObjectURL(w);
+  PQ.con = await PQ.db.connect();
+  return PQ.con;
+}
+
+// Parquet delle date scelte (scaricati una volta per sessione) e tabella dei titoli con editore e uscita
+async function preparaParquet(date){
+  const con = await duckdb();
+  const giorni = date.filter(g => /^\d{4}-\d{2}-\d{2}$/.test(g)).sort();
+  if (!giorni.length) return { con, giorni, sorgente: null };
+  const elenco = await rpcDb('msg_parquet_file', { p_dal: giorni[0], p_al: giorni[giorni.length - 1] });
+  const mancanti = elenco.filter(f => !f.percorso);
+  if (mancanti.length) console.warn('Non ancora in Parquet (dati incompleti):', mancanti.map(f => f.nome_file).join(', '));
+  const chiave = f => `${f.percorso}@${f.parquet_il}`;
+  const nuovi = elenco.filter(f => f.percorso && !PQ.file.has(chiave(f)));
+  if (nuovi.length) {
+    const { data: url, error } = await sb.storage.from('msg-parquet').createSignedUrls(nuovi.map(f => f.percorso), 600);
+    if (error) throw new Error('Parquet: ' + error.message);
+    await Promise.all(nuovi.map(async (f, i) => {
+      const r = await fetch(url[i].signedUrl);
+      if (!r.ok) throw new Error(`Parquet ${f.nome_file}: ${r.status}`);
+      const nome = `m_${f.file}_${Date.parse(f.parquet_il)}.parquet`;
+      await PQ.db.registerFileBuffer(nome, new Uint8Array(await r.arrayBuffer()));
+      PQ.file.set(chiave(f), nome);
+    }));
+  }
+  if (!PQ.titoli) {
+    PQ.titoli = (async () => {
+      await PQ.db.registerFileText('titoli.tsv', await rpcDb('msg_parquet_titoli', {}) || 'ean\teditore\tcodice_editore\tdata_uscita\n');
+      await con.query(`create or replace table titoli as select * from read_csv('titoli.tsv', delim='\t', header=true, quote='', escape='',
+        nullstr='', columns={'ean':'VARCHAR','editore':'VARCHAR','codice_editore':'VARCHAR','data_uscita':'DATE'})`);
+    })();
+  }
+  await PQ.titoli;
+  const nomi = elenco.filter(f => f.percorso).map(f => PQ.file.get(chiave(f)));
+  return { con, giorni, sorgente: nomi.length ? `read_parquet([${nomi.map(sqlTesto).join(',')}])` : null };
+}
+
+const SOMME_PQ = `coalesce(sum(copie) filter (where movimento = 'F'), 0)::double copie_f, coalesce(sum(copie) filter (where movimento = 'R'), 0)::double copie_r,
+  coalesce(sum(netto_cent) filter (where movimento = 'F'), 0) / 100.0 netto_f, coalesce(sum(netto_cent) filter (where movimento = 'R'), 0) / 100.0 netto_r,
+  coalesce(sum(lordo_cent) filter (where movimento = 'F'), 0) / 100.0 lordo_f, coalesce(sum(lordo_cent) filter (where movimento = 'R'), 0) / 100.0 lordo_r`;
+
+async function analisiParquet(nome, a){
+  const { con, giorni, sorgente } = await preparaParquet(a.p_date || []);
+  if (!sorgente) return [];
+  const filtri = [`m.data in (${giorni.map(g => `date ${sqlTesto(g)}`).join(',')})`];
+  if (a.p_clienti != null) filtri.push(sqlIn('m.codice_cliente', a.p_clienti));
+  if (a.p_editori != null) filtri.push(sqlIn('t.editore', a.p_editori));
+  if (a.p_ean != null) filtri.push(`m.ean = ${sqlTesto(a.p_ean)}`);
+  let cerca = null;
+  if (nome === 'msg_analisi_titoli' && a.p_cerca) {
+    const [x, y] = await Promise.all([
+      sb.from('msg_titoli').select('ean').ilike('titolo', `%${a.p_cerca}%`).limit(5000),
+      sb.from('msg_titoli').select('ean').eq('ean', a.p_cerca)]);
+    if (x.error || y.error) throw new Error('Ricerca titoli: ' + (x.error || y.error).message);
+    cerca = [...x.data, ...y.data].map(r => r.ean);
+    filtri.push(sqlIn('m.ean', cerca));
+  }
+  const m = `(select m.*, t.editore, t.codice_editore, t.data_uscita from ${sorgente} m left join titoli t using (ean) where ${filtri.join(' and ')})`;
+  const righe = async sql => (await con.query(sql)).toArray().map(r => ({ ...r }));
+
+  if (nome === 'msg_analisi_andamento') {
+    const u = a.p_grana === 'mese' ? 'month' : a.p_grana === 'settimana' ? 'week' : 'day';
+    return righe(`select strftime(date_trunc('${u}', data)::date, '%Y-%m-%d') periodo, ${SOMME_PQ} from ${m} group by 1 order by 1`);
+  }
+  if (nome === 'msg_analisi_tipi') {
+    return righe(`select case when lancio then 'lancio' when data_uscita is not null and data < data_uscita + interval 6 month then 'novita' else 'classico' end tipo,
+      ${SOMME_PQ} from ${m} group by 1`);
+  }
+  if (nome === 'msg_analisi_editori') {
+    const ed = await righe(`with x as (select editore, count(distinct ean)::double titoli, ${SOMME_PQ} from ${m} group by 1),
+        c as (select editore, string_agg(distinct codice_editore, ', ' order by codice_editore) codici from titoli group by 1)
+      select x.*, c.codici from x left join c using (editore) order by x.netto_f - x.netto_r desc`);
+    const account = new Map(an.tuttiEditori.map(e => [e.editore, e.account]));
+    return ed.map(e => ({ ...e, account: account.get(e.editore) ?? null }));
+  }
+  if (nome === 'msg_analisi_titoli') {
+    const ordine = { lordo: 'lordo_f - lordo_r', lordo_f: 'lordo_f', lordo_r: 'lordo_r', netto_f: 'netto_f', netto_r: 'netto_r' }[a.p_ordine] || 'netto_f - netto_r';
+    const limite = Math.max(1, Math.min(a.p_limite ?? 300, 2000));
+    const tit = await righe(`select ean, ${SOMME_PQ} from ${m} group by 1 order by ${ordine} desc limit ${limite}`);
+    if (!tit.length) return [];
+    const det = new Map();
+    for (let k = 0; k < tit.length; k += 200) {
+      const { data, error } = await sb.from('msg_titoli').select('ean, titolo, editore, collana, prezzo_copertina').in('ean', tit.slice(k, k + 200).map(t => t.ean));
+      if (error) throw new Error('Titoli: ' + error.message);
+      data.forEach(t => det.set(t.ean, t));
+    }
+    return tit.filter(t => det.has(t.ean)).map(t => { const d = det.get(t.ean);
+      return { ...t, titolo: d.titolo, editore: d.editore, collana: d.collana, prezzo: d.prezzo_copertina }; });
+  }
+  if (nome === 'msg_analisi_clienti') {
+    // Totali per cliente da DuckDB, poi il livello scelto come in msg_analisi_clienti
+    const perCliente = new Map((await righe(`select codice_cliente, ${SOMME_PQ} from ${m} group by 1`)).map(r => [r.codice_cliente, r]));
+    const liv = a.p_livello, gruppi = new Map(), chiavi = Object.keys(TOT_ZERO());
+    an.tuttiClienti.forEach(c => {
+      const p = perCliente.get(c.codice_cliente); if (!p) return;
+      const ch = liv === 'cliente' ? c.codice_cliente : liv === 'gruppo' ? c.gruppo : liv === 'categoria' ? c.categoria : c.canale;
+      const nm = liv === 'cliente' ? (c.ragione_sociale ?? c.codice_cliente) : ch;
+      const luogo = `${c.citta ?? ''} ${c.provincia ?? ''}`.trim();
+      const dt = liv === 'cliente' ? [luogo || null, c.gruppo].filter(x => x != null).join(' · ')
+        : liv === 'gruppo' ? c.categoria : liv === 'categoria' ? c.canale : c.canale_gruppo;
+      const g = gruppi.get(ch) || { chiave: ch, nome: nm, dettaglio: dt, clienti: 0, ...TOT_ZERO() };
+      if (nm != null && (g.nome == null || nm < g.nome)) g.nome = nm;
+      if (dt != null && (g.dettaglio == null || dt < g.dettaglio)) g.dettaglio = dt;
+      g.clienti++;
+      chiavi.forEach(k => g[k] += p[k]);
+      gruppi.set(ch, g);
+    });
+    return [...gruppi.values()].sort((x, y) => y.lordo_f - x.lordo_f).slice(0, 3000);
+  }
+  throw new Error(`${nome}: non disponibile sui Parquet`);
 }
 
 function mostraImport(titolo, righe){

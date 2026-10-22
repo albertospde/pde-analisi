@@ -37,3 +37,17 @@ jobs:
         env:
           MSG_IMPORT_CRON_KEY: ${{ secrets.MSG_IMPORT_CRON_KEY }}
           FORZA: ${{ github.event_name == 'workflow_dispatch' && '1' || '' }}
+      # Dal 22/10/2026: ogni file importato si salva anche in Parquet (bucket msg-parquet), così
+      # msg_movimenti nel database resta piccolo. Gira anche se l'importazione ha avuto problemi:
+      # archivia ciò che è già dentro, e i file mancanti al passaggio successivo.
+      - uses: actions/setup-python@v6
+        if: always()
+        with:
+          python-version: "3.13"
+      - name: Archivia in Parquet i file importati
+        if: always()
+        run: |
+          pip install --quiet pyarrow==26.0.0
+          python scripts/archivia_parquet.py
+        env:
+          MSG_IMPORT_CRON_KEY: ${{ secrets.MSG_IMPORT_CRON_KEY }}
