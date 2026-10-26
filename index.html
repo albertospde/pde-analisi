@@ -190,6 +190,9 @@ html[data-theme="light"]{ --tipo-lancio:#2a78d6; --tipo-novita:#8a3fd1; --tipo-c
 .tooltip .tt-riga{display:flex;align-items:center;gap:6px;}
 .tooltip .tt-riga i{width:8px;height:8px;border-radius:2px;display:inline-block;}
 tr.cliccabile{cursor:pointer;}
+tr.sotto-tipo td{font-size:12px;color:var(--muted);}
+tr.sotto-tipo .st{font-size:11px;margin-top:2px;}
+tr.sotto-tipo.scelto td{background:var(--card-2);color:var(--text);}
 /* Classifiche (clienti, editori, titoli): posizione, nome con dettaglio sotto, dato principale con quota */
 .tab-strumenti{display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
 .cerca-mini{width:220px;max-width:100%;font-size:12px;padding:6px 10px 6px 28px;border-radius:8px;border:1px solid var(--border);background:var(--input) no-repeat 9px 50%/13px;color:var(--text);
@@ -486,7 +489,8 @@ function disegnaCollane(){
    editori: null = tutti gli editori degli account scelti, altrimenti Set di nomi
    canali, categorie, gruppi, clienti: come gli editori, ognuno dentro le scelte del livello sopra */
 const NESSUN_ACCOUNT = '-';
-const an = { giorni: [], tuttiEditori: [], tuttiClienti: [], livello: 'canale', elenco: [], selGrafico: new Set(), f: null, b: null, ean: null, titoloEan: null, pronto: false, richiesta: 0 };
+const an = { giorni: [], tuttiEditori: [], tuttiClienti: [], livello: 'canale', elenco: [], selGrafico: new Set(), f: null, b: null, ean: null, titoloEan: null, pronto: false, richiesta: 0,
+  senzaYba3: false, senzaRighe: null };   // classifica Titoli ristretta alle novità senza bolla YBA3 (clic in Lanci e rifornimenti)
 const isoGiorno = d => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
 const piuGiorni = (iso, n) => { const d = new Date(iso + 'T12:00:00'); d.setDate(d.getDate() + n); return isoGiorno(d); };
 const fmtGiorno = iso => new Date(iso + 'T12:00:00').toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: '2-digit' });
@@ -872,14 +876,17 @@ async function aggiornaDettaglio(n = ++an.richiesta){
   const filtri = { p_editori: filtroEditori(), p_ean: an.ean, p_clienti: filtroClienti() };
   // Una richiesta troppo pesante (oltre 8 secondi) non ferma le altre: il suo riquadro lo dice
   const prova = r => r.catch(e => { console.warn(e); return null; });
-  const [editori, andaPrima, tipi, tipiPrima, clienti] = await Promise.all([
+  const [editori, andaPrima, tipi, tipiPrima, clienti, senza, senzaPrima] = await Promise.all([
     prova(rpc('msg_analisi_editori', { p_date: date, p_clienti: filtri.p_clienti })),
     prova(rpc('msg_analisi_andamento', { p_date: prima, ...filtri, p_grana: 'mese' })),
     prova(rpc('msg_analisi_tipi', { p_date: date, ...filtri })),
     prova(rpc('msg_analisi_tipi', { p_date: prima, ...filtri })),
     prova(rpc('msg_analisi_clienti', { p_date: date, p_livello: an.livello, ...filtri })),
+    prova(rpc('msg_analisi_novita_senza_yba3', { p_date: date, ...filtri })),
+    prova(rpc('msg_analisi_novita_senza_yba3', { p_date: prima, ...filtri })),
   ]);
   if (n !== an.richiesta) return;
+  an.senzaRighe = senza;
   const righe = an.selGrafico.size ? an.serie.filter(x => an.selGrafico.has(x.periodo)) : an.serie;
   const tot = somma(righe), totPrima = somma(andaPrima || []);
   an.tot = tot;
@@ -891,10 +898,10 @@ async function aggiornaDettaglio(n = ++an.richiesta){
     return `<div class="kpi"><div class="kpi-l">${esc(v.k || v.l)}</div>
       <div class="kpi-n">${v.e != null ? fmtEuro0(v.e) : v.n}</div>${v.s ? `<div class="kpi-s">${v.s}</div>` : ''}<div class="kpi-s">${confronto}</div></div>`;
   }).join('');
-  if (tipi) disegnaTipi(tipi, tipiPrima, date, prima); else $('a-tipi').innerHTML = TROPPO;
+  if (tipi) disegnaTipi(tipi, tipiPrima, date, prima, senza, senzaPrima); else $('a-tipi').innerHTML = TROPPO;
   if (clienti) disegnaClienti(clienti, tot); else $('a-clienti').innerHTML = TROPPO;
   an.elenco = editori || [];
-  const nomeEd = descrizioneEditori(), quando = descrizioneSelezione();
+  const quando = descrizioneSelezione();
   // Tabella editori: solo quelli del filtro; nascosta quando se ne guarda uno solo
   const righeEd = editoriFiltrati().slice().sort((x, y) => valoreOrdine(y) - valoreOrdine(x));
   $('a-card-editori').classList.toggle('hidden', righeEd.length <= 1 && !!filtroEditori());
@@ -907,7 +914,6 @@ async function aggiornaDettaglio(n = ++an.richiesta){
   $('a-editori').querySelectorAll('[data-editore]').forEach(tr => tr.onclick = () => {
     an.f.editori = new Set([tr.dataset.editore]); an.f.account = null; an.ean = null; aggiornaAnalisi(); window.scrollTo({ top: 0, behavior: 'smooth' });
   });
-  $('a-titolo-titoli').textContent = 'Titoli' + (nomeEd ? ' · ' + nomeEd : '') + (quando ? ' · ' + quando : '');
   await caricaTitoli();
 }
 
@@ -916,8 +922,15 @@ const TROPPO = '<p class="err">Calcolo troppo pesante per il periodo e i filtri 
 /* Lanci e rifornimenti. Lancio = bolla di lancio (causale YBA3); rifornimento da novità = titolo uscito
    da meno di 6 mesi; classico = il resto. Importo: il primo scelto, sul fornito (sul reso se si guarda solo il reso). */
 const TIPI = [['lancio', 'Lanci', 'var(--tipo-lancio)'], ['novita', 'Rifornimento novità', 'var(--tipo-novita)'], ['classico', 'Rifornimento classico', 'var(--tipo-classico)']];
-function disegnaTipi(tipi, tipiPrima, date, prima){
+function disegnaTipi(tipi, tipiPrima, date, prima, senza, senzaPrima){
   const t = importiScelti()[0], suReso = movScelto() === 'R', campo = `${t}_${suReso ? 'r' : 'f'}`;
+  // Di cui senza YBA3: rifornimento novità di titoli mai passati da una bolla di lancio (uscita da Giro Manager)
+  const senzaTot = righe => {
+    if (!righe) return null;
+    const c = suReso ? 'copie_r' : 'copie_f', conDati = righe.filter(r => Number(r[c]));
+    return { titoli: conDati.length, copie: conDati.reduce((a, r) => a + Number(r[c]), 0), valore: conDati.reduce((a, r) => a + Number(r[campo] || 0), 0) };
+  };
+  const sz = senzaTot(senza), szp = senzaTot(senzaPrima);
   const valore = (righe, tipo) => Number(righe.find(r => r.tipo === tipo)?.[campo] || 0);
   const ora = TIPI.map(([k]) => valore(tipi, k)), prec = TIPI.map(([k]) => valore(tipiPrima || [], k));
   const totOra = ora.reduce((a, b) => a + b, 0), totPrec = prec.reduce((a, b) => a + b, 0);
@@ -932,7 +945,8 @@ function disegnaTipi(tipi, tipiPrima, date, prima){
       <tr><th></th><th class="num">${esc(nomeMisura)}</th><th class="num">Quota</th><th class="num">Anno prec.</th><th class="num">Quota</th><th class="num">Variazione</th></tr>
       ${TIPI.map(([, nome, c], i) => `<tr data-i="${i}"><td style="white-space:nowrap"><i style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${c};margin-right:8px;"></i>${nome}</td>
         <td class="num">${fmtEuro(ora[i])}</td><td class="num">${quota(ora[i], totOra)}</td>
-        <td class="num">${totPrec ? fmtEuro(prec[i]) : '—'}</td><td class="num">${quota(prec[i], totPrec)}</td><td class="num">${variazione(ora[i], prec[i])}</td></tr>`).join('')}
+        <td class="num">${totPrec ? fmtEuro(prec[i]) : '—'}</td><td class="num">${quota(prec[i], totPrec)}</td><td class="num">${variazione(ora[i], prec[i])}</td></tr>`
+        + (TIPI[i][0] === 'novita' ? rigaSenza(sz, szp, ora[i], prec[i], totPrec, quota) : '')).join('')}
       <tr><td><b>Totale</b></td><td class="num"><b>${fmtEuro(totOra)}</b></td><td></td><td class="num"><b>${totPrec ? fmtEuro(totPrec) : '—'}</b></td><td></td><td class="num">${variazione(totOra, totPrec)}</td></tr>
     </table></div><div class="tooltip hidden"></div>`;
   // Passando sopra uno spicchio (o una riga della tabella): evidenzia il tipo in entrambe le ciambelle e nella tabella,
@@ -968,6 +982,19 @@ function disegnaTipi(tipi, tipiPrima, date, prima){
     tr.onpointerenter = () => evidenzia(Number(tr.dataset.i));
     tr.onpointerleave = () => evidenzia(null);
   });
+  const rs = tab.querySelector('#a-tipi-senza');
+  if (rs) rs.onclick = () => { an.senzaYba3 = !an.senzaYba3; caricaTitoli(); if (an.senzaYba3) $('a-titoli').closest('.card').scrollIntoView({ behavior: 'smooth' }); };
+}
+// Riga "di cui senza YBA3" sotto il rifornimento novità: quota sulle novità, clic per l'elenco nella classifica Titoli
+function rigaSenza(sz, szp, novita, novitaPrec, totPrec, quota){
+  const nTit = n => `${fmtN(n)} ${n === 1 ? 'titolo' : 'titoli'}`;
+  const dett = s => s ? `${nTit(s.titoli)} · ${fmtN(s.copie)} copie` : 'non calcolato';
+  return `<tr id="a-tipi-senza" class="cliccabile sotto-tipo${an.senzaYba3 ? ' scelto' : ''}" title="Titoli mai passati da una bolla di lancio YBA3: novità per la data di uscita di Giro Manager. Clic per l'elenco nella classifica Titoli">
+    <td><div style="padding-left:18px;">↳ di cui senza YBA3</div><div class="st" style="padding-left:18px;">${dett(sz)}</div></td>
+    <td class="num">${sz ? fmtEuro(sz.valore) : '—'}</td><td class="num">${sz ? quota(sz.valore, novita) : '—'}</td>
+    <td class="num">${szp && totPrec ? fmtEuro(szp.valore) : '—'}${szp && totPrec ? `<div class="st">${nTit(szp.titoli)}</div>` : ''}</td>
+    <td class="num">${szp && totPrec ? quota(szp.valore, novitaPrec) : '—'}</td>
+    <td class="num">${sz && szp ? variazione(sz.valore, szp.valore) : ''}</td></tr>`;
 }
 // Ciambella SVG: un arco per tipo, totale al centro, descrizione sotto
 function ciambella(valori, tot, titolo, sotto){
@@ -1020,6 +1047,9 @@ function descrizioneSelezione(){
 async function caricaTitoli(){
   const n = an.richiesta;
   let titoli;
+  if (an.senzaYba3) return mostraSenzaYba3();
+  const nomeEd = descrizioneEditori(), quando = descrizioneSelezione();
+  $('a-titolo-titoli').textContent = 'Titoli' + (nomeEd ? ' · ' + nomeEd : '') + (quando ? ' · ' + quando : '');
   try { titoli = await rpc('msg_analisi_titoli', { p_date: dateDettaglio(), p_editori: filtroEditori(), p_cerca: $('a-cerca').value.trim() || null, p_limite: 300, p_ordine: chiaveOrdine(), p_clienti: filtroClienti() }); }
   catch (e) { if (n === an.richiesta) $('a-titoli').innerHTML = TROPPO; return; }
   if (n !== an.richiesta) return;
@@ -1029,6 +1059,25 @@ async function caricaTitoli(){
     titolo: 'Titolo', nome: t => t.titolo, sotto: t => [t.ean, t.editore, t.collana, fmtEuro(t.prezzo)].filter(Boolean).join(' · '),
     attr: t => `data-ean="${esc(t.ean)}" data-titolo="${esc(t.titolo)}"`, totale: an.tot ? valoreOrdine(an.tot) : 0,
   }) : '<p class="nota">Nessun titolo nel periodo con questi filtri.</p>';
+  $('a-titoli').querySelectorAll('[data-ean]').forEach(tr => tr.onclick = () => {
+    an.ean = tr.dataset.ean; an.titoloEan = tr.dataset.titolo; aggiornaAnalisi(); window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+}
+// Classifica Titoli ristretta alle novità senza YBA3 (righe già calcolate per Lanci e rifornimenti)
+function mostraSenzaYba3(){
+  document.querySelector('#a-tipi-senza')?.classList.add('scelto');
+  const righe = an.senzaRighe, m = movScelto(), t0 = importiScelti()[0];
+  $('a-titolo-titoli').textContent = 'Titoli · rifornimento novità senza YBA3';
+  $('a-sub-titoli').innerHTML = `Solo il rifornimento novità di titoli mai passati da una bolla di lancio, per ${t0} ${m === 'F' ? 'fornito' : m === 'R' ? 'reso' : '(fornito − reso)'}. `
+    + `<a href="#" id="a-tutti-titoli">Mostra tutti i titoli</a>`;
+  $('a-tutti-titoli').onclick = e => { e.preventDefault(); an.senzaYba3 = false; document.querySelector('#a-tipi-senza')?.classList.remove('scelto'); caricaTitoli(); };
+  if (!righe) { $('a-titoli').innerHTML = TROPPO; return; }
+  const q = $('a-cerca').value.trim().toLowerCase();
+  const ordinate = righe.filter(t => !q || t.ean === q || (t.titolo || '').toLowerCase().includes(q)).slice().sort((x, y) => valoreOrdine(y) - valoreOrdine(x));
+  $('a-titoli').innerHTML = ordinate.length ? classifica(ordinate, {
+    titolo: 'Titolo', nome: t => t.titolo, sotto: t => [t.ean, t.editore, t.collana, fmtEuro(t.prezzo)].filter(Boolean).join(' · '),
+    attr: t => `data-ean="${esc(t.ean)}" data-titolo="${esc(t.titolo)}"`, totale: 0,
+  }) : '<p class="nota">Nessun titolo senza YBA3 nel periodo con questi filtri.</p>';
   $('a-titoli').querySelectorAll('[data-ean]').forEach(tr => tr.onclick = () => {
     an.ean = tr.dataset.ean; an.titoloEan = tr.dataset.titolo; aggiornaAnalisi(); window.scrollTo({ top: 0, behavior: 'smooth' });
   });
@@ -1568,11 +1617,12 @@ async function rpcDb(nome, args){
    I movimenti (giorno × EAN × cliente) non stanno più nel database ma nel bucket msg-parquet, un file per
    importazione. Le analisi che li usavano (clienti insieme a editore o titolo) li leggono qui con DuckDB:
    stesse colonne e stessi conti delle RPC msg_analisi_*, che per tutti gli altri filtri usano i riepiloghi. */
-const PQ = { db: null, con: null, file: new Map(), titoli: null };
+const PQ = { db: null, con: null, file: new Map(), titoli: null, senza: null };
 function usaParquet(nome, a){
   const ed = a.p_editori != null || a.p_ean != null, cl = a.p_clienti != null;
   return nome === 'msg_analisi_andamento' ? cl && ed : nome === 'msg_analisi_clienti' ? ed
-    : nome === 'msg_analisi_editori' ? cl : nome === 'msg_analisi_tipi' ? cl && ed : nome === 'msg_analisi_titoli' ? cl : false;
+    : nome === 'msg_analisi_editori' ? cl : nome === 'msg_analisi_tipi' ? cl && ed
+    : nome === 'msg_analisi_titoli' || nome === 'msg_analisi_novita_senza_yba3' ? cl : false;
 }
 const sqlTesto = s => `'${String(s).replace(/'/g, "''")}'`;
 const sqlIn = (col, v) => !v.length ? 'false' : `${col} in (${v.map(sqlTesto).join(',')})`;
@@ -1660,10 +1710,19 @@ async function analisiParquet(nome, a){
     const account = new Map(an.tuttiEditori.map(e => [e.editore, e.account]));
     return ed.map(e => ({ ...e, account: account.get(e.editore) ?? null }));
   }
-  if (nome === 'msg_analisi_titoli') {
-    const ordine = { lordo: 'lordo_f - lordo_r', lordo_f: 'lordo_f', lordo_r: 'lordo_r', netto_f: 'netto_f', netto_r: 'netto_r' }[a.p_ordine] || 'netto_f - netto_r';
-    const limite = Math.max(1, Math.min(a.p_limite ?? 300, 2000));
-    const tit = await righe(`select ean, ${SOMME_PQ} from ${m} group by 1 order by ${ordine} desc limit ${limite}`);
+  if (nome === 'msg_analisi_titoli' || nome === 'msg_analisi_novita_senza_yba3') {
+    let tit;
+    if (nome === 'msg_analisi_novita_senza_yba3') {
+      // Rifornimento novità dei titoli mai passati da una bolla YBA3 (elenco EAN dal database, una volta per sessione)
+      PQ.senza ??= rpcDb('msg_parquet_senza_yba3', {}).catch(e => { PQ.senza = null; throw e; });
+      const senza = await PQ.senza || [];
+      tit = await righe(`select ean, ${SOMME_PQ} from ${m} where ${sqlIn('ean', senza)} and not lancio
+        and data_uscita is not null and data < data_uscita + interval 6 month group by 1`);
+    } else {
+      const ordine = { lordo: 'lordo_f - lordo_r', lordo_f: 'lordo_f', lordo_r: 'lordo_r', netto_f: 'netto_f', netto_r: 'netto_r' }[a.p_ordine] || 'netto_f - netto_r';
+      const limite = Math.max(1, Math.min(a.p_limite ?? 300, 2000));
+      tit = await righe(`select ean, ${SOMME_PQ} from ${m} group by 1 order by ${ordine} desc limit ${limite}`);
+    }
     if (!tit.length) return [];
     const det = new Map();
     for (let k = 0; k < tit.length; k += 200) {
