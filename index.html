@@ -193,6 +193,10 @@ tr.cliccabile{cursor:pointer;}
 tr.sotto-tipo td{font-size:12px;color:var(--muted);}
 tr.sotto-tipo .st{font-size:11px;margin-top:2px;}
 tr.sotto-tipo.scelto td{background:var(--card-2);color:var(--text);}
+tr.dett-tipo td{color:var(--text);}
+button.piu{width:22px;height:22px;padding:0;border-radius:6px;border:1px solid var(--muted);background:transparent;color:var(--text);
+  font-size:15px;line-height:20px;cursor:pointer;}
+button.piu:hover,button.piu[aria-expanded="true"]{background:var(--card-2);}
 /* Classifiche (clienti, editori, titoli): posizione, nome con dettaglio sotto, dato principale con quota */
 .tab-strumenti{display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
 .cerca-mini{width:220px;max-width:100%;font-size:12px;padding:6px 10px 6px 28px;border-radius:8px;border:1px solid var(--border);background:var(--input) no-repeat 9px 50%/13px;color:var(--text);
@@ -490,7 +494,8 @@ function disegnaCollane(){
    canali, categorie, gruppi, clienti: come gli editori, ognuno dentro le scelte del livello sopra */
 const NESSUN_ACCOUNT = '-';
 const an = { giorni: [], tuttiEditori: [], tuttiClienti: [], livello: 'canale', elenco: [], selGrafico: new Set(), f: null, b: null, ean: null, titoloEan: null, pronto: false, richiesta: 0,
-  senzaYba3: false, senzaRighe: null };   // classifica Titoli ristretta alle novità senza bolla YBA3 (clic in Lanci e rifornimenti)
+  senzaYba3: false, senzaRighe: null,   // classifica Titoli ristretta alle novità senza bolla YBA3 (clic in Lanci e rifornimenti)
+  tipiAperti: new Set(), tipiTitoli: null, tipiTitoliReq: 0, tipiArgs: null, tipiDisegno: null };   // "+" di Lanci e rifornimenti
 const isoGiorno = d => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
 const piuGiorni = (iso, n) => { const d = new Date(iso + 'T12:00:00'); d.setDate(d.getDate() + n); return isoGiorno(d); };
 const fmtGiorno = iso => new Date(iso + 'T12:00:00').toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: '2-digit' });
@@ -887,6 +892,7 @@ async function aggiornaDettaglio(n = ++an.richiesta){
   ]);
   if (n !== an.richiesta) return;
   an.senzaRighe = senza;
+  an.tipiTitoli = null; an.tipiArgs = { date, filtri };
   const righe = an.selGrafico.size ? an.serie.filter(x => an.selGrafico.has(x.periodo)) : an.serie;
   const tot = somma(righe), totPrima = somma(andaPrima || []);
   an.tot = tot;
@@ -942,12 +948,16 @@ function disegnaTipi(tipi, tipiPrima, date, prima, senza, senzaPrima){
   const quota = (v, tot) => tot ? (v / tot * 100).toLocaleString('it-IT', { maximumFractionDigits: 1 }) + '%' : '—';
   $('a-tipi').innerHTML = '<div class="torte-coppia">' + ciambella(ora, totOra, 'Anno corrente', estremi(date)) + ciambella(prec, totPrec, 'Anno precedente', totPrec ? estremi(prima) : tipiPrima ? 'nessun dato' : 'calcolo troppo pesante, riprova') + '</div>'
     + `<div class="tbl-wrap" style="max-height:none;"><table>
-      <tr><th></th><th class="num">${esc(nomeMisura)}</th><th class="num">Quota</th><th class="num">Anno prec.</th><th class="num">Quota</th><th class="num">Variazione</th></tr>
-      ${TIPI.map(([, nome, c], i) => `<tr data-i="${i}"><td style="white-space:nowrap"><i style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${c};margin-right:8px;"></i>${nome}</td>
+      <tr><th></th><th class="num">${esc(nomeMisura)}</th><th class="num">Quota</th><th class="num">Anno prec.</th><th class="num">Quota</th><th class="num">Variazione</th><th></th></tr>
+      ${TIPI.map(([k, nome, c], i) => {
+        const aperto = an.tipiAperti.has(k);
+        return `<tr data-i="${i}"><td style="white-space:nowrap"><i style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${c};margin-right:8px;"></i>${nome}</td>
         <td class="num">${fmtEuro(ora[i])}</td><td class="num">${quota(ora[i], totOra)}</td>
-        <td class="num">${totPrec ? fmtEuro(prec[i]) : '—'}</td><td class="num">${quota(prec[i], totPrec)}</td><td class="num">${variazione(ora[i], prec[i])}</td></tr>`
-        + (TIPI[i][0] === 'novita' ? rigaSenza(sz, szp, ora[i], prec[i], totPrec, quota) : '')).join('')}
-      <tr><td><b>Totale</b></td><td class="num"><b>${fmtEuro(totOra)}</b></td><td></td><td class="num"><b>${totPrec ? fmtEuro(totPrec) : '—'}</b></td><td></td><td class="num">${variazione(totOra, totPrec)}</td></tr>
+        <td class="num">${totPrec ? fmtEuro(prec[i]) : '—'}</td><td class="num">${quota(prec[i], totPrec)}</td><td class="num">${variazione(ora[i], prec[i])}</td>
+        <td class="num"><button type="button" class="piu" data-tipo="${k}" aria-expanded="${aperto}" title="${aperto ? 'Chiudi' : 'Titoli e copie'}">${aperto ? '−' : '+'}</button></td></tr>`
+        + (aperto ? rigaTitoliCopie(k, tipi) + (k === 'novita' ? rigaSenza(sz, szp, ora[i], prec[i], totPrec, quota) : '') : '');
+      }).join('')}
+      <tr><td><b>Totale</b></td><td class="num"><b>${fmtEuro(totOra)}</b></td><td></td><td class="num"><b>${totPrec ? fmtEuro(totPrec) : '—'}</b></td><td></td><td class="num">${variazione(totOra, totPrec)}</td><td></td></tr>
     </table></div><div class="tooltip hidden"></div>`;
   // Passando sopra uno spicchio (o una riga della tabella): evidenzia il tipo in entrambe le ciambelle e nella tabella,
   // al centro della ciambella mostra importo e quota, nel riquadro il confronto con l'anno precedente
@@ -984,17 +994,43 @@ function disegnaTipi(tipi, tipiPrima, date, prima, senza, senzaPrima){
   });
   const rs = tab.querySelector('#a-tipi-senza');
   if (rs) rs.onclick = () => { an.senzaYba3 = !an.senzaYba3; caricaTitoli(); if (an.senzaYba3) $('a-titoli').closest('.card').scrollIntoView({ behavior: 'smooth' }); };
+  // "+": apre/chiude sotto la riga titoli e copie (il numero di titoli si calcola solo alla prima apertura)
+  an.tipiDisegno = [tipi, tipiPrima, date, prima, senza, senzaPrima];
+  tab.querySelectorAll('.piu').forEach(b => b.onclick = ev => {
+    ev.stopPropagation();
+    const k = b.dataset.tipo;
+    an.tipiAperti.has(k) ? an.tipiAperti.delete(k) : an.tipiAperti.add(k);
+    disegnaTipi(...an.tipiDisegno);
+  });
+  if (an.tipiAperti.size && !an.tipiTitoli && an.tipiArgs && an.tipiTitoliReq !== an.richiesta) caricaTipiTitoli();
 }
-// Riga "di cui senza YBA3" sotto il rifornimento novità: quota sulle novità, clic per l'elenco nella classifica Titoli
+async function caricaTipiTitoli(){
+  const n = an.tipiTitoliReq = an.richiesta;
+  let r;
+  try { r = await rpc('msg_analisi_tipi_titoli', { p_date: an.tipiArgs.date, ...an.tipiArgs.filtri }); }
+  catch (e) { console.warn(e); r = 'errore'; }
+  if (n !== an.richiesta) return;
+  an.tipiTitoli = r;
+  if (an.tipiDisegno) disegnaTipi(...an.tipiDisegno);
+}
+const nTit = n => `${fmtN(n)} ${n === 1 ? 'titolo' : 'titoli'}`;
+// Riga aperta col "+": numero di titoli e copie del tipo (fornite, rese o entrambe secondo il movimento scelto)
+function rigaTitoliCopie(k, tipi){
+  const m = movScelto(), r = tipi.find(x => x.tipo === k) || {}, tt = an.tipiTitoli;
+  const titoli = tt === 'errore' ? 'titoli: calcolo troppo pesante'
+    : !tt ? 'titoli: calcolo…' : nTit(Number(tt.find(x => x.tipo === k)?.[m === 'R' ? 'titoli_r' : 'titoli_f'] || 0));
+  const copie = [m !== 'R' ? `${fmtN(Number(r.copie_f || 0))} copie fornite` : '', m !== 'F' ? `${fmtN(Number(r.copie_r || 0))} copie rese` : ''].filter(Boolean);
+  return `<tr class="sotto-tipo dett-tipo"><td colspan="7"><div style="padding-left:18px;">Totale: <b>${titoli}</b> · ${copie.join(' · ')}</div></td></tr>`;
+}
+// Riga "di cui senza lancio" sotto il rifornimento novità: quota sulle novità, clic per l'elenco nella classifica Titoli
 function rigaSenza(sz, szp, novita, novitaPrec, totPrec, quota){
-  const nTit = n => `${fmtN(n)} ${n === 1 ? 'titolo' : 'titoli'}`;
   const dett = s => s ? `${nTit(s.titoli)} · ${fmtN(s.copie)} copie` : 'non calcolato';
-  return `<tr id="a-tipi-senza" class="cliccabile sotto-tipo${an.senzaYba3 ? ' scelto' : ''}" title="Titoli mai passati da una bolla di lancio YBA3: novità per la data di uscita di Giro Manager. Clic per l'elenco nella classifica Titoli">
-    <td><div style="padding-left:18px;">↳ di cui senza YBA3</div><div class="st" style="padding-left:18px;">${dett(sz)}</div></td>
+  return `<tr id="a-tipi-senza" class="cliccabile sotto-tipo${an.senzaYba3 ? ' scelto' : ''}" title="Titoli mai usciti con una bolla di lancio: novità per la data di uscita di Giro Manager. Clic per l'elenco nella classifica Titoli">
+    <td><div style="padding-left:18px;">↳ di cui senza lancio</div><div class="st" style="padding-left:18px;">${dett(sz)}</div></td>
     <td class="num">${sz ? fmtEuro(sz.valore) : '—'}</td><td class="num">${sz ? quota(sz.valore, novita) : '—'}</td>
     <td class="num">${szp && totPrec ? fmtEuro(szp.valore) : '—'}${szp && totPrec ? `<div class="st">${nTit(szp.titoli)}</div>` : ''}</td>
     <td class="num">${szp && totPrec ? quota(szp.valore, novitaPrec) : '—'}</td>
-    <td class="num">${sz && szp ? variazione(sz.valore, szp.valore) : ''}</td></tr>`;
+    <td class="num">${sz && szp ? variazione(sz.valore, szp.valore) : ''}</td><td></td></tr>`;
 }
 // Ciambella SVG: un arco per tipo, totale al centro, descrizione sotto
 function ciambella(valori, tot, titolo, sotto){
@@ -1067,7 +1103,7 @@ async function caricaTitoli(){
 function mostraSenzaYba3(){
   document.querySelector('#a-tipi-senza')?.classList.add('scelto');
   const righe = an.senzaRighe, m = movScelto(), t0 = importiScelti()[0];
-  $('a-titolo-titoli').textContent = 'Titoli · rifornimento novità senza YBA3';
+  $('a-titolo-titoli').textContent = 'Titoli · rifornimento novità senza lancio';
   $('a-sub-titoli').innerHTML = `Solo il rifornimento novità di titoli mai passati da una bolla di lancio, per ${t0} ${m === 'F' ? 'fornito' : m === 'R' ? 'reso' : '(fornito − reso)'}. `
     + `<a href="#" id="a-tutti-titoli">Mostra tutti i titoli</a>`;
   $('a-tutti-titoli').onclick = e => { e.preventDefault(); an.senzaYba3 = false; document.querySelector('#a-tipi-senza')?.classList.remove('scelto'); caricaTitoli(); };
@@ -1077,7 +1113,7 @@ function mostraSenzaYba3(){
   $('a-titoli').innerHTML = ordinate.length ? classifica(ordinate, {
     titolo: 'Titolo', nome: t => t.titolo, sotto: t => [t.ean, t.editore, t.collana, fmtEuro(t.prezzo)].filter(Boolean).join(' · '),
     attr: t => `data-ean="${esc(t.ean)}" data-titolo="${esc(t.titolo)}"`, totale: 0,
-  }) : '<p class="nota">Nessun titolo senza YBA3 nel periodo con questi filtri.</p>';
+  }) : '<p class="nota">Nessun titolo senza lancio nel periodo con questi filtri.</p>';
   $('a-titoli').querySelectorAll('[data-ean]').forEach(tr => tr.onclick = () => {
     an.ean = tr.dataset.ean; an.titoloEan = tr.dataset.titolo; aggiornaAnalisi(); window.scrollTo({ top: 0, behavior: 'smooth' });
   });
@@ -1622,7 +1658,7 @@ function usaParquet(nome, a){
   const ed = a.p_editori != null || a.p_ean != null, cl = a.p_clienti != null;
   return nome === 'msg_analisi_andamento' ? cl && ed : nome === 'msg_analisi_clienti' ? ed
     : nome === 'msg_analisi_editori' ? cl : nome === 'msg_analisi_tipi' ? cl && ed
-    : nome === 'msg_analisi_titoli' || nome === 'msg_analisi_novita_senza_yba3' ? cl : false;
+    : nome === 'msg_analisi_titoli' || nome === 'msg_analisi_novita_senza_yba3' || nome === 'msg_analisi_tipi_titoli' ? cl : false;
 }
 const sqlTesto = s => `'${String(s).replace(/'/g, "''")}'`;
 const sqlIn = (col, v) => !v.length ? 'false' : `${col} in (${v.map(sqlTesto).join(',')})`;
@@ -1699,9 +1735,11 @@ async function analisiParquet(nome, a){
     const u = a.p_grana === 'mese' ? 'month' : a.p_grana === 'settimana' ? 'week' : 'day';
     return righe(`select strftime(date_trunc('${u}', data)::date, '%Y-%m-%d') periodo, ${SOMME_PQ} from ${m} group by 1 order by 1`);
   }
-  if (nome === 'msg_analisi_tipi') {
-    return righe(`select case when lancio then 'lancio' when data_uscita is not null and data < data_uscita + interval 6 month then 'novita' else 'classico' end tipo,
-      ${SOMME_PQ} from ${m} group by 1`);
+  const TIPO_PQ = `case when lancio then 'lancio' when data_uscita is not null and data < data_uscita + interval 6 month then 'novita' else 'classico' end`;
+  if (nome === 'msg_analisi_tipi') return righe(`select ${TIPO_PQ} tipo, ${SOMME_PQ} from ${m} group by 1`);
+  if (nome === 'msg_analisi_tipi_titoli') {
+    return righe(`select tipo, count(*) filter (where cf > 0)::double titoli_f, count(*) filter (where cr > 0)::double titoli_r from (
+      select ${TIPO_PQ} tipo, ean, sum(copie) filter (where movimento = 'F') cf, sum(copie) filter (where movimento = 'R') cr from ${m} group by 1, 2) group by 1`);
   }
   if (nome === 'msg_analisi_editori') {
     const ed = await righe(`with x as (select editore, count(distinct ean)::double titoli, ${SOMME_PQ} from ${m} group by 1),
