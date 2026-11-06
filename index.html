@@ -146,15 +146,34 @@ html[data-theme="light"]{ --serie-1:#2a78d6; --serie-2:#eb6834; --griglia:rgba(2
 .f-colonne{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));column-gap:8px;align-content:start;}
 .f-mese-tit{grid-column:1/-1;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;padding:6px 6px 2px;}
 /* Lanci e rifornimenti: due ciambelle (periodo e anno precedente) e tabella di confronto */
-:root{ --tipo-lancio:#3987e5; --tipo-novita:#a35ce0; --tipo-classico:#25a88a; --su:#3fb36b; --giu:#ef5b5b; }
-html[data-theme="light"]{ --tipo-lancio:#2a78d6; --tipo-novita:#8a3fd1; --tipo-classico:#16896f; --su:#1f8a4c; --giu:#c62828; }
+:root{ --tipo-lancio:#3987e5; --tipo-novita:#a35ce0; --tipo-classico:#25a88a; --su:#3fb36b; --giu:#ef5b5b;
+  --canale-1:#3987e5; --canale-2:#d95926; --canale-3:#199e70; --canale-4:#c98500; }
+html[data-theme="light"]{ --tipo-lancio:#2a78d6; --tipo-novita:#8a3fd1; --tipo-classico:#16896f; --su:#1f8a4c; --giu:#c62828;
+  --canale-1:#2a78d6; --canale-2:#eb6834; --canale-3:#1baf7a; --canale-4:#eda100; }
 .torte{position:relative;display:flex;flex-wrap:wrap;gap:16px 32px;align-items:center;}
 .torte-coppia{display:flex;flex-wrap:wrap;justify-content:center;gap:12px 20px;flex:0 0 auto;margin:0 auto;}
 .torte .tbl-wrap{flex:1 1 560px;min-width:0;}
+.torte table td,.torte table th{white-space:nowrap;padding-left:6px;padding-right:6px;}
+th.ord{cursor:pointer;user-select:none;}
+th.ord:hover{color:var(--text);}
+th.ord .fr{font-size:10px;margin-left:3px;}
+.misure-tipi{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:10px;font-size:13px;}
+.misure-tipi label{display:inline-flex;align-items:center;gap:5px;cursor:pointer;}
+.clienti-corpo{display:flex;flex-wrap:wrap;gap:16px 28px;align-items:flex-start;}
+.clienti-corpo #a-clienti{flex:1 1 520px;min-width:0;}
+.torta-canali{flex:0 0 auto;margin:0 auto;width:260px;}
+.torta-canali svg{width:260px;height:240px;overflow:visible;display:block;}
+.torta-canali path,.torta-canali circle{cursor:pointer;stroke:var(--card);stroke-width:2;}
+.torta-canali text{font-size:12px;font-weight:600;fill:var(--text);font-variant-numeric:tabular-nums;}
+.torta-leg{display:grid;gap:4px;margin-top:6px;font-size:12px;}
+.torta-leg button{display:grid;grid-template-columns:12px 1fr auto;gap:8px;align-items:center;background:none;border:0;color:var(--text);font:inherit;padding:2px 4px;border-radius:4px;cursor:pointer;text-align:left;}
+.torta-leg button:hover{background:var(--card-2);}
+.torta-leg i{width:10px;height:10px;border-radius:2px;}
+.torta-leg span:last-child{color:var(--muted);font-variant-numeric:tabular-nums;}
 .torte tr[data-i]{cursor:default;transition:opacity .15s;}
 .torte table.evid tr[data-i]:not(.on){opacity:.4;}
 .torta{display:flex;flex-direction:column;align-items:center;gap:6px;}
-.torta svg{width:200px;height:200px;overflow:visible;}
+.torta svg{width:160px;height:160px;overflow:visible;}
 .torta .arco{transition:opacity .15s,stroke-width .15s;cursor:pointer;}
 .torta svg.evid .arco:not(.on){opacity:.3;}
 .torta .arco.on{stroke-width:32;}
@@ -287,7 +306,7 @@ td.muto{color:var(--muted);}
             <span class="f-az"><button type="button" class="btn btn-sec btn-sm" data-tutti="editori">Tutti</button><button type="button" class="btn btn-sec btn-sm" data-nessuno="editori">Nessuno</button></span></div>
           <input type="text" id="f-editori-cerca" placeholder="Cerca editore…" aria-label="Cerca editore">
           <div class="f-lista f-alta f-colonne" id="f-editori"></div></div>
-        <!-- Clienti: canale → categoria → gruppo cliente → cliente (gerarchia di Giro Manager) -->
+        <!-- Clienti: canale (ONLINE, CATENE, INDIE, GROSSISTI, ALTRO) → categoria → gruppo cliente → cliente -->
         <div class="f-box"><div class="f-testa"><span>Canali</span><span class="f-conta" id="f-canali-conta"></span>
             <span class="f-az"><button type="button" class="btn btn-sec btn-sm" data-tutti="canali">Tutti</button><button type="button" class="btn btn-sec btn-sm" data-nessuno="canali">Nessuno</button></span></div>
           <div class="f-lista f-alta" id="f-canali"></div></div>
@@ -319,6 +338,7 @@ td.muto{color:var(--muted);}
       <div class="card">
         <div class="viz-testa"><h2 id="a-titolo-tipi">Lanci e rifornimenti</h2><div class="legenda" id="a-legenda-tipi"></div></div>
         <p class="sub" id="a-sub-tipi"></p>
+        <div class="misure-tipi" id="a-misure-tipi" role="group" aria-label="Dati da vedere"></div>
         <div class="torte" id="a-tipi"></div>
       </div>
       <div class="card" id="a-card-clienti">
@@ -326,11 +346,11 @@ td.muto{color:var(--muted);}
           <div class="tab-strumenti"><div class="f-scelte" id="a-livello" role="group" aria-label="Livello"></div>
             <input type="search" class="cerca-mini" id="a-cerca-clienti" placeholder="Cerca…" aria-label="Cerca nei clienti"></div></div>
         <p class="sub"><span id="a-conta-clienti"></span>Clic su una riga per filtrarla e scendere al livello sotto.</p>
-        <div id="a-clienti"></div>
+        <div class="clienti-corpo"><div class="torta-canali" id="a-torta-canali"></div><div id="a-clienti"></div></div>
       </div>
       <div class="card" id="a-card-editori">
         <div class="viz-testa"><h2 id="a-titolo-editori">Editori</h2>
-          <input type="search" class="cerca-mini" id="a-cerca-editori" placeholder="Cerca editore o account…" aria-label="Cerca negli editori"></div>
+          <input type="search" class="cerca-mini" id="a-cerca-editori" placeholder="Cerca editore…" aria-label="Cerca negli editori"></div>
         <p class="sub"><span id="a-conta-editori"></span>Clic su un editore per vederne andamento e titoli.</p>
         <div id="a-editori"></div>
       </div>
@@ -495,7 +515,8 @@ function disegnaCollane(){
 const NESSUN_ACCOUNT = '-';
 const an = { giorni: [], tuttiEditori: [], tuttiClienti: [], livello: 'canale', elenco: [], selGrafico: new Set(), f: null, b: null, ean: null, titoloEan: null, pronto: false, richiesta: 0,
   senzaYba3: false, senzaRighe: null,   // classifica Titoli ristretta alle novità senza bolla YBA3 (clic in Lanci e rifornimenti)
-  tipiAperti: new Set(), tipiTitoli: null, tipiTitoliReq: 0, tipiArgs: null, tipiDisegno: null };   // "+" di Lanci e rifornimenti
+  tipiAperti: new Set(), tipiTitoli: null, tipiTitoliReq: 0, tipiArgs: null, tipiDisegno: null,
+  tipiMisure: new Set(['F', 'R', 'V']), ordine: {} };   // dati scelti in Lanci e rifornimenti; ordinamento di ogni tabella   // "+" di Lanci e rifornimenti
 const isoGiorno = d => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
 const piuGiorni = (iso, n) => { const d = new Date(iso + 'T12:00:00'); d.setDate(d.getDate() + n); return isoGiorno(d); };
 const fmtGiorno = iso => new Date(iso + 'T12:00:00').toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: '2-digit' });
@@ -505,10 +526,21 @@ const nomeMese = m => new Date(m + '-01T12:00:00').toLocaleDateString('it-IT', {
 const nomeAccount = a => a === NESSUN_ACCOUNT ? 'Senza account' : a;
 const accountDi = e => e.account || NESSUN_ACCOUNT;
 
-const RAPIDI = [['ultimo', 'Ultimo giorno'], ['7', 'Ultimi 7 giorni'], ['30', 'Ultimi 30 giorni'], ['mese', 'Mese in corso'], ['anno', 'Anno in corso'], ['tutto', 'Tutto']];
+const annoDati = () => Number(an.giorni[an.giorni.length - 1].slice(0, 4));
+const rapidi = () => [['ultimo', 'Ultimo giorno'], ['7', 'Ultimi 7 giorni'], ['30', 'Ultimi 30 giorni'], ['mese', 'Mese in corso'],
+  ['anno', `Anno ${annoDati()}`], ['annoprec', `Anno ${annoDati() - 1}`], ['tutto', 'Tutto']];
+// Periodo di calendario scelto (anno intero o Dal/Al), anche oltre l'ultimo giorno importato: i giorni che non ci
+// sono ancora restano vuoti, ma l'anno precedente si vede tutto. null = solo i giorni scelti
+function intervalloDi(f){
+  const r = f.regola, y = annoDati();
+  if (r?.rapido === 'anno') return { da: `${y}-01-01`, a: `${y}-12-31` };
+  if (r?.rapido === 'annoprec') return { da: `${y - 1}-01-01`, a: `${y - 1}-12-31` };
+  return r?.dal ? { da: r.dal, a: r.al } : null;
+}
 // Le scorciatoie partono dall'ultimo giorno importato, non da oggi
 function giorniRapido(v){
   const al = an.giorni[an.giorni.length - 1];
+  if (v === 'annoprec') return new Set(an.giorni.filter(g => g.startsWith(String(annoDati() - 1))));
   const da = v === 'ultimo' ? al : v === '7' ? piuGiorni(al, -6) : v === '30' ? piuGiorni(al, -29)
     : v === 'mese' ? al.slice(0, 8) + '01' : v === 'anno' ? al.slice(0, 4) + '-01-01' : '0000';
   return new Set(an.giorni.filter(g => g >= da));
@@ -523,6 +555,7 @@ function regolaMesi(date){
 }
 function giorniDaRegola(r){
   if (r?.rapido) return giorniRapido(r.rapido);
+  if (r?.dal) return new Set(an.giorni.filter(g => g >= r.dal && g <= r.al));
   if (r?.mesi) return new Set(an.giorni.filter(g => r.mesi.includes(g.slice(0, 7))));
   return null;
 }
@@ -535,7 +568,41 @@ const copiaFiltri = f => ({ ...f, date: new Set(f.date), mov: new Set(f.mov), im
 // Editori ammessi da account ed editori scelti (f = filtri applicati o bozza)
 const editoreAmmesso = (f, e) => (!f.account || f.account.has(accountDi(e))) && (!f.editori || f.editori.has(e.editore));
 // Elenco da passare alle RPC: null = nessun filtro sugli editori
-const filtroEditori = () => !an.f.account && !an.f.editori ? null : an.tuttiEditori.filter(e => editoreAmmesso(an.f, e)).map(e => e.editore);
+const filtroEditori = () => !an.f.account && !an.f.editori ? null : an.tuttiEditori.filter(e => editoreAmmesso(an.f, e)).flatMap(e => e.nomi);
+/* Editori per codice: stesso codice editore = una riga sola (Harper Collins, Harper Collins Ragazzi e Midnight HC);
+   un editore con due codici li unisce. Nome = quello con più titoli. e.editore è il nome del gruppo, e.nomi quelli nel database */
+function gruppiEditori(elenco, codici){
+  const su = new Map(), nuovo = x => { if (!su.has(x)) su.set(x, x); return x; };
+  const radice = x => { let r = nuovo(x); while (su.get(r) !== r) r = su.get(r); return r; };
+  const titoli = new Map(), codiciDi = new Map();
+  codici.forEach(c => {
+    titoli.set(c.editore, (titoli.get(c.editore) || 0) + Number(c.titoli));
+    codiciDi.set(c.editore, [...(codiciDi.get(c.editore) || []), c.codice]);
+    su.set(radice(c.editore), radice('cod:' + c.codice));
+  });
+  const account = new Map(elenco.map(e => [e.editore, e.account])), gruppi = new Map();
+  elenco.forEach(e => {
+    const r = radice(e.editore), g = gruppi.get(r) || { nomi: [], codici: new Set() };
+    g.nomi.push(e.editore);
+    (codiciDi.get(e.editore) || []).forEach(c => g.codici.add(c));
+    gruppi.set(r, g);
+  });
+  return [...gruppi.values()].map(g => {
+    g.nomi.sort((x, y) => (titoli.get(y) || 0) - (titoli.get(x) || 0) || x.length - y.length);
+    return { editore: g.nomi[0], nomi: g.nomi, account: g.nomi.map(n => account.get(n)).find(Boolean) || null, codici: [...g.codici].sort().join(', ') };
+  });
+}
+// Righe per editore del database sommate per gruppo
+function sommaPerGruppo(righe){
+  const di = new Map(an.tuttiEditori.flatMap(g => g.nomi.map(n => [n, g]))), out = new Map();
+  righe.forEach(r => {
+    const g = di.get(r.editore), k = g ? g.editore : r.editore;
+    const x = out.get(k) || { editore: k, account: g ? g.account : r.account, codici: g ? g.codici : r.codici, titoli: 0, ...TOT_ZERO() };
+    ['titoli', ...Object.keys(TOT_ZERO())].forEach(c => x[c] += Number(r[c] || 0));
+    out.set(k, x);
+  });
+  return [...out.values()];
+}
 const editoriFiltrati = () => an.elenco.filter(e => editoreAmmesso(an.f, e));
 function descrizioneEditori(){
   if (!an.f.account && !an.f.editori) return '';
@@ -546,7 +613,7 @@ const dateScelte = () => [...an.f.date].sort();
 
 /* Clienti: quattro livelli, ognuno ristretto dalle scelte dei livelli sopra */
 const LIVELLI = [
-  { k: 'canali', campo: 'canale', nome: 'Canale', plurale: 'canali' },
+  { k: 'canali', campo: 'canale_gruppo', nome: 'Canale', plurale: 'canali' },
   { k: 'categorie', campo: 'categoria', nome: 'Categoria', plurale: 'categorie' },
   { k: 'gruppi', campo: 'gruppo', nome: 'Gruppo', plurale: 'gruppi' },
   { k: 'clienti', campo: 'codice_cliente', nome: 'Cliente', plurale: 'clienti' },
@@ -567,7 +634,14 @@ const annoPrima = g => { const [y, m, d] = g.split('-').map(Number); const x = n
 // Giorni dell'anno precedente da confrontare, ciascuno col giorno di quest'anno a cui corrisponde: la stessa data
 // dei giorni scelti e, tra due giorni scelti consecutivi fra quelli con dati, anche i giorni di calendario in mezzo
 // (es. 1-19/10/26 → tutto l'1-19/10/25, compresi i venerdì 2025 che nel 2026 sono sabati, come Tableau)
-function datePrima(date){
+function datePrima(date, tuttoIlPeriodo = false){
+  // Anno intero o Dal/Al: tutto il periodo dell'anno prima (con barre scelte sul grafico, solo quelle)
+  const iv = intervalloDi(an.f);
+  if (iv) {
+    const fuori = new Map();
+    for (let d = iv.da; d <= iv.a; d = piuGiorni(d, 1)) if (tuttoIlPeriodo || !an.selGrafico.size || an.selGrafico.has(periodoDi(d))) fuori.set(annoPrima(d), d);
+    return new Map([...fuori].sort((a, b) => a[0] < b[0] ? -1 : 1));
+  }
   const s = [...date].sort(), pos = new Map(an.giorni.map((g, i) => [g, i])), out = new Map();
   s.forEach((g, i) => {
     out.set(annoPrima(g), g);
@@ -582,17 +656,21 @@ function datePrima(date){
 const movScelto = () => an.f.mov.size === 2 ? 'FR' : [...an.f.mov][0];
 const importiScelti = () => ['lordo', 'netto'].filter(t => an.f.imp.has(t));
 const NOME_IMPORTO = { lordo: 'Lordo', netto: 'Netto' };
+// Lordo o netto si leggono nei filtri in alto: nelle etichette solo se sono scelti entrambi
+const etiImporto = (t, quale) => importiScelti().length > 1 ? `${NOME_IMPORTO[t]} ${quale.toLowerCase()}` : quale;
+// Etichetta del dato principale (Fornito, Reso o, con entrambi, Venduto = fornito − reso)
+const etiPrincipale = () => etiImporto(importiScelti()[0], { F: 'Fornito', R: 'Reso', FR: 'Venduto' }[movScelto()]);
 // Colonne / indicatori per un oggetto con copie_f, copie_r, netto_f, netto_r, lordo_f, lordo_r
 function valori(x){
   const m = movScelto(), F = m !== 'R', R = m !== 'F', v = [];
   if (F) v.push({ l: 'Fornite', n: fmtN(x.copie_f), x: Number(x.copie_f), k: 'Copie fornite' });
   if (R) v.push({ l: 'Rese', n: fmtN(x.copie_r), x: Number(x.copie_r), k: 'Copie rese' });
-  if (F && R) v.push({ l: 'Resa', n: fmtPerc(Number(x.copie_r), Number(x.copie_f)), k: 'Resa', s: 'rese su fornite' });
+  if (F && R) v.push({ l: 'Resa', n: fmtPerc(Number(x.copie_r), Number(x.copie_f)), x: Number(x.copie_f) ? Number(x.copie_r) / Number(x.copie_f) : 0, k: 'Resa', s: 'rese su fornite' });
   importiScelti().forEach(t => {
-    const f = Number(x[t + '_f']), r = Number(x[t + '_r']), nome = NOME_IMPORTO[t];
-    if (F) v.push({ l: `${nome} fornito`, e: f });
-    if (R) v.push({ l: `${nome} reso`, e: r });
-    if (F && R) v.push({ l: `${nome} F − R`, e: f - r, k: `${nome} (fornito − reso)` });
+    const f = Number(x[t + '_f']), r = Number(x[t + '_r']);
+    if (F) v.push({ l: etiImporto(t, 'Fornito'), e: f });
+    if (R) v.push({ l: etiImporto(t, 'Reso'), e: r });
+    if (F && R) v.push({ l: etiImporto(t, 'Venduto'), e: f - r });
   });
   return v;
 }
@@ -615,7 +693,8 @@ async function avviaAnalisi(){
   $('a-contenuto').classList.toggle('hidden', !an.giorni.length);
   if (!an.giorni.length) return;
   // Editori e account di tutto il periodo disponibile, per le liste del pannello
-  [an.tuttiEditori, an.tuttiClienti] = await Promise.all([rpc('msg_analisi_elenco_editori', {}), rpc('msg_analisi_elenco_clienti', {})]);
+  const [elencoEd, codiciEd, elencoCl] = await Promise.all([rpc('msg_analisi_elenco_editori', {}), rpc('msg_analisi_codici_editori', {}), rpc('msg_analisi_elenco_clienti', {})]);
+  an.tuttiEditori = gruppiEditori(elencoEd, codiciEd); an.tuttiClienti = elencoCl;
   if (!an.f) an.f = filtriIniziali();
   else {
     // Scorciatoia o mesi interi: i nuovi file importati allungano il periodo
@@ -677,7 +756,10 @@ function preparaPannello(){
     const t = e.target.closest('[data-tutti],[data-nessuno],[data-rapido]');
     if (!t || !an.b) return;
     const b = an.b, tutti = !!t.dataset.tutti, quale = t.dataset.tutti || t.dataset.nessuno;
-    if (t.dataset.rapido) { b.date = giorniRapido(t.dataset.rapido); b.regola = { rapido: t.dataset.rapido }; }
+    if (t.dataset.rapido) {
+      b.date = giorniRapido(t.dataset.rapido); b.regola = { rapido: t.dataset.rapido };
+      if (t.dataset.rapido === 'anno' || t.dataset.rapido === 'annoprec') b.grana = 'mese';
+    }
     if (quale === 'giorni') { b.date = tutti ? new Set(an.giorni) : new Set(); b.regola = tutti ? { rapido: 'tutto' } : null; }
     if (quale === 'account') b.account = tutti ? null : new Set();
     if (quale === 'editori') {
@@ -700,7 +782,7 @@ function preparaPannello(){
     if (!da || !a) return;
     if (da > a) { if (quale === 'da') a = da; else da = a; }
     an.b.date = new Set(an.giorni.filter(g => g >= da && g <= a));
-    an.b.regola = regolaMesi(an.b.date);
+    an.b.regola = { dal: da, al: a };
     disegnaPannello(da, a);
   };
   $('a-da').onchange = () => intervallo('da');
@@ -724,7 +806,7 @@ function chiudiPannello(){
 const tuttiAccount = () => [...new Set(an.tuttiEditori.map(accountDi))].sort((x, y) => x === NESSUN_ACCOUNT ? 1 : y === NESSUN_ACCOUNT ? -1 : x.localeCompare(y, 'it'));
 // Editori degli account scelti nella bozza, e quelli che passano la ricerca
 const editoriBozza = () => an.tuttiEditori.filter(e => !an.b.account || an.b.account.has(accountDi(e))).sort((x, y) => x.editore.localeCompare(y.editore, 'it'));
-const editoriMostrati = () => { const q = $('f-editori-cerca').value.trim().toUpperCase(); return editoriBozza().filter(e => !q || e.editore.includes(q)); };
+const editoriMostrati = () => { const q = $('f-editori-cerca').value.trim().toUpperCase(); return editoriBozza().filter(e => !q || e.nomi.some(n => n.includes(q))); };
 const spunta = (k, v, si, testo, extra = '') => `<label><input type="checkbox" data-k="${k}" value="${esc(v)}"${si ? ' checked' : ''}><span>${testo}</span>${extra}</label>`;
 const scelta = (k, v, si, testo) => `<label><input type="radio" name="f-${k}" data-k="${k}" value="${v}"${si ? ' checked' : ''}>${testo}</label>`;
 
@@ -733,12 +815,13 @@ function disegnaPannello(da, a){
   $('f-mov').innerHTML = spunta('mov', 'F', b.mov.has('F'), 'Fornito') + spunta('mov', 'R', b.mov.has('R'), 'Reso');
   $('f-imp').innerHTML = spunta('imp', 'lordo', b.imp.has('lordo'), 'Lordo') + spunta('imp', 'netto', b.imp.has('netto'), 'Netto');
   $('f-grana').innerHTML = [['giorno', 'Giorno'], ['settimana', 'Settimana'], ['mese', 'Mese']].map(([v, t]) => scelta('grana', v, b.grana === v, t)).join('');
-  $('f-rapidi').innerHTML = RAPIDI.map(([v, t]) => `<button type="button" class="btn btn-sec btn-sm${b.regola?.rapido === v ? ' attivo' : ''}" data-rapido="${v}">${t}</button>`).join('');
+  $('f-rapidi').innerHTML = rapidi().map(([v, t]) => `<button type="button" class="btn btn-sec btn-sm${b.regola?.rapido === v ? ' attivo' : ''}" data-rapido="${v}">${t}</button>`).join('');
   const scelti = [...b.date].sort();
   $('a-da').min = $('a-a').min = an.giorni[0];
-  $('a-da').max = $('a-a').max = an.giorni[an.giorni.length - 1];
-  $('a-da').value = da || scelti[0] || '';
-  $('a-a').value = a || scelti[scelti.length - 1] || '';
+  $('a-da').max = $('a-a').max = `${annoDati()}-12-31`;
+  const iv = intervalloDi(b);
+  $('a-da').value = da || iv?.da || scelti[0] || '';
+  $('a-a').value = a || iv?.a || scelti[scelti.length - 1] || '';
   // Mesi: spuntati se interi, "a metà" se solo alcuni giorni
   const mesi = mesiDisponibili();
   $('f-mesi').innerHTML = mesi.map(m => {
@@ -799,10 +882,11 @@ function controllaBozza(){
 function disegnaRiepilogo(){
   const f = an.f, d = dateScelte();
   const chip = (t, togli) => `<span class="chip-filtro${togli ? '' : ' semplice'}">${t}${togli ? `<button data-togli="${togli}" aria-label="Togli il filtro">✕</button>` : ''}</span>`;
-  const rapido = RAPIDI.find(([v]) => v === f.regola?.rapido);
-  const periodo = rapido ? rapido[1] : f.regola?.mesi ? f.regola.mesi.slice().sort().map(nomeMese).join(', ')
+  const rapido = rapidi().find(([v]) => v === f.regola?.rapido), iv = intervalloDi(f);
+  const periodo = rapido ? rapido[1] : f.regola?.dal ? 'Periodo' : f.regola?.mesi ? f.regola.mesi.slice().sort().map(nomeMese).join(', ')
     : d.length === 1 ? fmtGiorno(d[0]) : `${d.length} giorni scelti`;
-  const estremi = d.length > 1 ? ` · ${fmtGiorno(d[0])} – ${fmtGiorno(d[d.length - 1])}` : rapido ? ` · ${fmtGiorno(d[0])}` : '';
+  const estremi = iv ? ` · ${fmtGiorno(iv.da)} – ${fmtGiorno(iv.a)}`
+    : d.length > 1 ? ` · ${fmtGiorno(d[0])} – ${fmtGiorno(d[d.length - 1])}` : rapido ? ` · ${fmtGiorno(d[0])}` : '';
   const nAcc = f.account ? f.account.size : 0;
   $('f-riepilogo').innerHTML = [
     chip(esc(periodo + estremi)),
@@ -842,7 +926,8 @@ async function aggiornaAnalisi(){
   const filtri = { p_editori: filtroEditori(), p_ean: an.ean, p_clienti: filtroClienti() };
   // (a grana giorno i giorni 2025 senza una barra 2026 corrispondente restano fuori dal grafico)
   const scelte = new Set(dateScelte());
-  const periodoPrima = new Map([...datePrima(scelte)].map(([p, g]) => [p, an.f.grana === 'giorno' && !scelte.has(g) ? null : periodoDi(g)]));
+  const iv = intervalloDi(an.f);
+  const periodoPrima = new Map([...datePrima(scelte, true)].map(([p, g]) => [p, an.f.grana === 'giorno' && !scelte.has(g) && !iv ? null : periodoDi(g)]));
   const [anda, giorniPrima] = await Promise.all([
     rpc('msg_analisi_andamento', { p_date: dateScelte(), ...filtri, p_grana: an.f.grana }),
     rpc('msg_analisi_andamento', { p_date: [...periodoPrima.keys()], ...filtri, p_grana: 'giorno' }).catch(e => { console.warn(e); return []; }),
@@ -856,6 +941,11 @@ async function aggiornaAnalisi(){
     Object.keys(t).forEach(k => t[k] += Number(x[k] || 0));
     an.seriePrima.set(p, t);
   });
+  // Anno intero: anche i periodi non ancora arrivati, con il solo anno precedente
+  if (iv) {
+    an.seriePrima.forEach((_, p) => { if (!anda.some(x => x.periodo === p)) anda.push({ periodo: p, ...TOT_ZERO() }); });
+    anda.sort((x, y) => x.periodo < y.periodo ? -1 : 1);
+  }
   an.selGrafico = new Set([...an.selGrafico].filter(p => anda.some(x => x.periodo === p)));
   const mov = movScelto(), nomeEd = descrizioneEditori();
   $('a-titolo-grafico').textContent = `Copie ${mov === 'F' ? 'fornite' : mov === 'R' ? 'rese' : 'fornite e rese'}${an.ean ? ' · ' + (an.titoloEan || an.ean) : nomeEd ? ' · ' + nomeEd : ''}`;
@@ -881,7 +971,7 @@ async function aggiornaDettaglio(n = ++an.richiesta){
   const filtri = { p_editori: filtroEditori(), p_ean: an.ean, p_clienti: filtroClienti() };
   // Una richiesta troppo pesante (oltre 8 secondi) non ferma le altre: il suo riquadro lo dice
   const prova = r => r.catch(e => { console.warn(e); return null; });
-  const [editori, andaPrima, tipi, tipiPrima, clienti, senza, senzaPrima] = await Promise.all([
+  const [editori, andaPrima, tipi, tipiPrima, clienti, senza, senzaPrima, canali] = await Promise.all([
     prova(rpc('msg_analisi_editori', { p_date: date, p_clienti: filtri.p_clienti })),
     prova(rpc('msg_analisi_andamento', { p_date: prima, ...filtri, p_grana: 'mese' })),
     prova(rpc('msg_analisi_tipi', { p_date: date, ...filtri })),
@@ -889,6 +979,7 @@ async function aggiornaDettaglio(n = ++an.richiesta){
     prova(rpc('msg_analisi_clienti', { p_date: date, p_livello: an.livello, ...filtri })),
     prova(rpc('msg_analisi_novita_senza_yba3', { p_date: date, ...filtri })),
     prova(rpc('msg_analisi_novita_senza_yba3', { p_date: prima, ...filtri })),
+    an.livello === 'canale' ? null : prova(rpc('msg_analisi_clienti', { p_date: date, p_livello: 'canale', ...filtri })),
   ]);
   if (n !== an.richiesta) return;
   an.senzaRighe = senza;
@@ -905,59 +996,96 @@ async function aggiornaDettaglio(n = ++an.richiesta){
       <div class="kpi-n">${v.e != null ? fmtEuro0(v.e) : v.n}</div>${v.s ? `<div class="kpi-s">${v.s}</div>` : ''}<div class="kpi-s">${confronto}</div></div>`;
   }).join('');
   if (tipi) disegnaTipi(tipi, tipiPrima, date, prima, senza, senzaPrima); else $('a-tipi').innerHTML = TROPPO;
+  disegnaTortaCanali(an.livello === 'canale' ? clienti : canali);
   if (clienti) disegnaClienti(clienti, tot); else $('a-clienti').innerHTML = TROPPO;
-  an.elenco = editori || [];
+  an.elenco = sommaPerGruppo(editori || []);
   const quando = descrizioneSelezione();
   // Tabella editori: solo quelli del filtro; nascosta quando se ne guarda uno solo
-  const righeEd = editoriFiltrati().slice().sort((x, y) => valoreOrdine(y) - valoreOrdine(x));
+  const righeEd = editoriFiltrati();
   $('a-card-editori').classList.toggle('hidden', righeEd.length <= 1 && !!filtroEditori());
   $('a-titolo-editori').textContent = 'Editori' + (quando ? ' · ' + quando : '');
-  $('a-editori').innerHTML = righeEd.length ? classifica(righeEd, {
-    titolo: 'Editore', nome: e => e.editore, sotto: e => [e.account, `${fmtN(e.titoli)} titoli`].filter(Boolean).join(' · '),
+  disegnaClassifica('a-editori', righeEd, {
+    titolo: 'Editore', nome: e => e.editore, sotto: e => [e.codici ? `cod. ${e.codici}` : '', `${fmtN(e.titoli)} titoli`].filter(Boolean).join(' · '),
     attr: e => `data-editore="${esc(e.editore)}"`, totale: valoreOrdine(tot),
-  }) : editori ? '<p class="nota">Nessun editore nel periodo con questi filtri.</p>' : TROPPO;
-  collegaCerca('a-cerca-editori', 'a-editori', 'a-conta-editori', ['editore', 'editori']);
-  $('a-editori').querySelectorAll('[data-editore]').forEach(tr => tr.onclick = () => {
-    an.f.editori = new Set([tr.dataset.editore]); an.f.account = null; an.ean = null; aggiornaAnalisi(); window.scrollTo({ top: 0, behavior: 'smooth' });
+    vuoto: editori ? '<p class="nota">Nessun editore nel periodo con questi filtri.</p>' : TROPPO,
+    cerca: ['a-cerca-editori', 'a-conta-editori', ['editore', 'editori']],
+    clic: tr => { an.f.editori = new Set([tr.dataset.editore]); an.f.account = null; an.ean = null; aggiornaAnalisi(); window.scrollTo({ top: 0, behavior: 'smooth' }); },
   });
   await caricaTitoli();
 }
 
 const TROPPO = '<p class="err">Calcolo troppo pesante per il periodo e i filtri scelti: restringi il periodo o i clienti.</p>';
 
-/* Lanci e rifornimenti. Lancio = bolla di lancio (causale YBA3); rifornimento da novità = titolo uscito
-   da meno di 6 mesi; classico = il resto. Importo: il primo scelto, sul fornito (sul reso se si guarda solo il reso). */
-const TIPI = [['lancio', 'Lanci', 'var(--tipo-lancio)'], ['novita', 'Rifornimento novità', 'var(--tipo-novita)'], ['classico', 'Rifornimento classico', 'var(--tipo-classico)']];
+/* Lanci e rifornimenti. Lancio = bolla di lancio (causale YBA3); rifornimento novità = nell'anno di uscita del titolo;
+   rifornimento catalogo = dagli anni dopo. Quadratini Fornito / Reso / Venduto: una terna di colonne per ciascuno
+   (quest'anno, anno prima, variazione). Ciambelle e quota sul primo dato scelto. */
+const TIPI = [['lancio', 'Lanci', 'var(--tipo-lancio)'], ['novita', 'Rifornimento novità', 'var(--tipo-novita)'], ['classico', 'Rifornimento catalogo', 'var(--tipo-classico)']];
+const MISURE = [['F', 'Fornito'], ['R', 'Reso'], ['V', 'Venduto']];
+const valMisura = (r, m, t) => { if (!r) return 0; const f = Number(r[t + '_f'] || 0), x = Number(r[t + '_r'] || 0); return m === 'F' ? f : m === 'R' ? x : f - x; };
+// Ordinamento delle tabelle: per ognuna colonna e verso; di base la quota, dalla maggiore
+const ordineDi = id => an.ordine[id] || { col: 'quota', dir: -1 };
+const frecciaOrd = (id, col) => { const o = ordineDi(id); return o.col === col ? `<span class="fr">${o.dir > 0 ? '▲' : '▼'}</span>` : ''; };
+function cambiaOrdine(id, col, alfabetico){
+  const o = ordineDi(id);
+  an.ordine[id] = o.col === col ? { col, dir: -o.dir } : { col, dir: alfabetico ? 1 : -1 };
+}
+const confronta = (a, b, dir) => typeof a === 'string' ? dir * a.localeCompare(b, 'it') : dir * (a - b);
 function disegnaTipi(tipi, tipiPrima, date, prima, senza, senzaPrima){
-  const t = importiScelti()[0], suReso = movScelto() === 'R', campo = `${t}_${suReso ? 'r' : 'f'}`;
-  // Di cui senza YBA3: rifornimento novità di titoli mai passati da una bolla di lancio (uscita da Giro Manager)
-  const senzaTot = righe => {
-    if (!righe) return null;
-    const c = suReso ? 'copie_r' : 'copie_f', conDati = righe.filter(r => Number(r[c]));
-    return { titoli: conDati.length, copie: conDati.reduce((a, r) => a + Number(r[c]), 0), valore: conDati.reduce((a, r) => a + Number(r[campo] || 0), 0) };
+  an.tipiDisegno = [tipi, tipiPrima, date, prima, senza, senzaPrima];
+  const t = importiScelti()[0], mis = MISURE.filter(([k]) => an.tipiMisure.has(k)), m0 = mis[0][0];
+  const riga = (righe, k) => (righe || []).find(r => r.tipo === k);
+  // Di cui senza lancio: rifornimento novità di titoli mai passati da una bolla di lancio (uscita da Giro Manager)
+  const senzaTot = righe => righe && {
+    titoli: righe.filter(r => Number(an.tipiMisure.has('R') && !an.tipiMisure.has('F') && !an.tipiMisure.has('V') ? r.copie_r : r.copie_f) > 0).length,
+    copie_f: righe.reduce((a, r) => a + Number(r.copie_f || 0), 0), copie_r: righe.reduce((a, r) => a + Number(r.copie_r || 0), 0),
+    ...TOT_ZERO_IMPORTI(righe),
   };
   const sz = senzaTot(senza), szp = senzaTot(senzaPrima);
-  const valore = (righe, tipo) => Number(righe.find(r => r.tipo === tipo)?.[campo] || 0);
-  const ora = TIPI.map(([k]) => valore(tipi, k)), prec = TIPI.map(([k]) => valore(tipiPrima || [], k));
+  // Ciambelle e quote: il primo dato scelto (i valori negativi non hanno una fetta)
+  const ora = TIPI.map(([k]) => Math.max(0, valMisura(riga(tipi, k), m0, t))), prec = TIPI.map(([k]) => Math.max(0, valMisura(riga(tipiPrima, k), m0, t)));
   const totOra = ora.reduce((a, b) => a + b, 0), totPrec = prec.reduce((a, b) => a + b, 0);
-  const nomeMisura = `${NOME_IMPORTO[t]} ${suReso ? 'reso' : 'fornito'}`;
-  $('a-titolo-tipi').textContent = 'Lanci e rifornimenti · ' + nomeMisura;
+  const nome0 = mis[0][1];
+  $('a-titolo-tipi').textContent = 'Lanci e rifornimenti';
   $('a-legenda-tipi').innerHTML = TIPI.map(([, nome, c]) => `<span><i style="background:${c}"></i>${nome}</span>`).join('');
   const estremi = d => d.length ? (d.length === 1 ? fmtGiorno(d[0]) : `${fmtGiorno(d[0])} – ${fmtGiorno(d[d.length - 1])}`) : '';
-  $('a-sub-tipi').textContent = `Confronto con le stesse date dell'anno precedente (${estremi(prima)}).`;
+  $('a-sub-tipi').textContent = `Novità: rifornimenti nell'anno di uscita del titolo; catalogo: dagli anni dopo. Confronto con ${estremi(prima) || "l'anno precedente"}. Torte e quota su: ${nome0.toLowerCase()}.`;
+  $('a-misure-tipi').innerHTML = MISURE.map(([k, nome]) => `<label><input type="checkbox" value="${k}"${an.tipiMisure.has(k) ? ' checked' : ''}>${nome}</label>`).join('');
+  $('a-misure-tipi').querySelectorAll('input').forEach(c => c.onchange = () => {
+    if (!c.checked && an.tipiMisure.size === 1) { c.checked = true; return; }   // almeno un dato
+    c.checked ? an.tipiMisure.add(c.value) : an.tipiMisure.delete(c.value);
+    disegnaTipi(...an.tipiDisegno);
+  });
   const quota = (v, tot) => tot ? (v / tot * 100).toLocaleString('it-IT', { maximumFractionDigits: 1 }) + '%' : '—';
-  $('a-tipi').innerHTML = '<div class="torte-coppia">' + ciambella(ora, totOra, 'Anno corrente', estremi(date)) + ciambella(prec, totPrec, 'Anno precedente', totPrec ? estremi(prima) : tipiPrima ? 'nessun dato' : 'calcolo troppo pesante, riprova') + '</div>'
+  const anni = [...new Set(date.map(g => g.slice(0, 4)))];
+  const annoOra = anni.length === 1 ? anni[0] : 'Periodo', annoPrec = anni.length === 1 ? String(Number(anni[0]) - 1) : 'Anno prec.';
+  const ID = 'a-tipi', th = (col, testo, attr = '', alfa = false) => `<th class="ord${alfa ? '' : ' num'}" data-col="${col}"${alfa ? ' data-alfa="1"' : ''} ${attr}>${testo}${frecciaOrd(ID, col)}</th>`;
+  // Righe nell'ordine scelto
+  const chiave = (i, col) => {
+    const [k, nome] = TIPI[i];
+    if (col === 'nome') return nome;
+    if (col === 'quota') return ora[i];
+    const a = valMisura(riga(tipi, k), col[0], t), b = valMisura(riga(tipiPrima, k), col[0], t);
+    return col.endsWith('_p') ? b : col.endsWith('_v') ? (b ? a / b - 1 : -Infinity) : a;
+  };
+  const o = ordineDi(ID), ordine = TIPI.map((_, i) => i).sort((x, y) => confronta(chiave(x, o.col), chiave(y, o.col), o.dir));
+  const nCol = 3 + mis.length * 3;
+  const celleMisura = (a, b) => `<td class="num">${fmtEuro0(a)}</td><td class="num sec-tipi">${tipiPrima && totPrec ? fmtEuro0(b) : '—'}</td><td class="num">${variazione(a, b)}</td>`;
+  $('a-tipi').innerHTML = '<div class="torte-coppia">' + ciambella(ora, totOra, annoOra, estremi(date)) + ciambella(prec, totPrec, annoPrec, totPrec ? estremi(prima) : tipiPrima ? 'nessun dato' : 'calcolo troppo pesante, riprova') + '</div>'
     + `<div class="tbl-wrap" style="max-height:none;"><table>
-      <tr><th></th><th class="num">${esc(nomeMisura)}</th><th class="num">Quota</th><th class="num">Anno prec.</th><th class="num">Quota</th><th class="num">Variazione</th><th></th></tr>
-      ${TIPI.map(([k, nome, c], i) => {
-        const aperto = an.tipiAperti.has(k);
-        return `<tr data-i="${i}"><td style="white-space:nowrap"><i style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${c};margin-right:8px;"></i>${nome}</td>
-        <td class="num">${fmtEuro(ora[i])}</td><td class="num">${quota(ora[i], totOra)}</td>
-        <td class="num">${totPrec ? fmtEuro(prec[i]) : '—'}</td><td class="num">${quota(prec[i], totPrec)}</td><td class="num">${variazione(ora[i], prec[i])}</td>
+      <tr>${th('nome', 'Tipo', 'rowspan="2"', true)}${mis.map(([, nome]) => `<th class="num" colspan="3" style="text-align:center;">${nome}</th>`).join('')}${th('quota', 'Quota', 'rowspan="2"')}<th rowspan="2"></th></tr>
+      <tr>${mis.map(([k]) => th(k, annoOra) + th(k + '_p', annoPrec) + th(k + '_v', 'Var.')).join('')}</tr>
+      ${ordine.map(i => {
+        const [k, nome, c] = TIPI[i], aperto = an.tipiAperti.has(k);
+        return `<tr data-i="${i}"><td><i style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${c};margin-right:8px;"></i>${nome}</td>
+        ${mis.map(([m]) => celleMisura(valMisura(riga(tipi, k), m, t), valMisura(riga(tipiPrima, k), m, t))).join('')}
+        <td class="num">${quota(ora[i], totOra)}</td>
         <td class="num"><button type="button" class="piu" data-tipo="${k}" aria-expanded="${aperto}" title="${aperto ? 'Chiudi' : 'Titoli e copie'}">${aperto ? '−' : '+'}</button></td></tr>`
-        + (aperto ? rigaTitoliCopie(k, tipi) + (k === 'novita' ? rigaSenza(sz, szp, ora[i], prec[i], totPrec, quota) : '') : '');
+        + (aperto ? rigaTitoliCopie(k, tipi, nCol) + (k === 'novita' ? rigaSenza(sz, szp, mis, t, ora[i], totPrec, quota) : '') : '');
       }).join('')}
-      <tr><td><b>Totale</b></td><td class="num"><b>${fmtEuro(totOra)}</b></td><td></td><td class="num"><b>${totPrec ? fmtEuro(totPrec) : '—'}</b></td><td></td><td class="num">${variazione(totOra, totPrec)}</td><td></td></tr>
+      <tr><td><b>Totale</b></td>${mis.map(([m]) => {
+        const a = TIPI.reduce((x, [k]) => x + valMisura(riga(tipi, k), m, t), 0), b = TIPI.reduce((x, [k]) => x + valMisura(riga(tipiPrima, k), m, t), 0);
+        return `<td class="num"><b>${fmtEuro0(a)}</b></td><td class="num"><b>${tipiPrima && totPrec ? fmtEuro0(b) : '—'}</b></td><td class="num">${variazione(a, b)}</td>`;
+      }).join('')}<td></td><td></td></tr>
     </table></div><div class="tooltip hidden"></div>`;
   // Passando sopra uno spicchio (o una riga della tabella): evidenzia il tipo in entrambe le ciambelle e nella tabella,
   // al centro della ciambella mostra importo e quota, nel riquadro il confronto con l'anno precedente
@@ -977,9 +1105,9 @@ function disegnaTipi(tipi, tipiPrima, date, prima, senza, senzaPrima){
     a.onpointermove = ev => {
       const i = Number(a.dataset.i);
       evidenzia(i);
-      tip.innerHTML = `<div class="tt-riga" style="margin-bottom:4px;"><i style="background:${TIPI[i][2]}"></i><b>${TIPI[i][1]}</b></div>
-        <div>Anno corrente: <b>${fmtEuro(ora[i])}</b> (${quota(ora[i], totOra)})</div>
-        <div>Anno prec.: <b>${totPrec ? fmtEuro(prec[i]) : '—'}</b>${totPrec ? ` (${quota(prec[i], totPrec)})` : ''}</div>
+      tip.innerHTML = `<div class="tt-riga" style="margin-bottom:4px;"><i style="background:${TIPI[i][2]}"></i><b>${TIPI[i][1]}</b> · ${nome0.toLowerCase()}</div>
+        <div>${annoOra}: <b>${fmtEuro(ora[i])}</b> (${quota(ora[i], totOra)})</div>
+        <div>${annoPrec}: <b>${totPrec ? fmtEuro(prec[i]) : '—'}</b>${totPrec ? ` (${quota(prec[i], totPrec)})` : ''}</div>
         <div>Variazione: ${variazione(ora[i], prec[i]) || '—'}</div>`;
       tip.classList.remove('hidden');
       const bb = box.getBoundingClientRect(), tw = tip.offsetWidth;
@@ -992,10 +1120,10 @@ function disegnaTipi(tipi, tipiPrima, date, prima, senza, senzaPrima){
     tr.onpointerenter = () => evidenzia(Number(tr.dataset.i));
     tr.onpointerleave = () => evidenzia(null);
   });
+  tab.querySelectorAll('th.ord').forEach(h => h.onclick = () => { cambiaOrdine(ID, h.dataset.col, !!h.dataset.alfa); disegnaTipi(...an.tipiDisegno); });
   const rs = tab.querySelector('#a-tipi-senza');
   if (rs) rs.onclick = () => { an.senzaYba3 = !an.senzaYba3; caricaTitoli(); if (an.senzaYba3) $('a-titoli').closest('.card').scrollIntoView({ behavior: 'smooth' }); };
   // "+": apre/chiude sotto la riga titoli e copie (il numero di titoli si calcola solo alla prima apertura)
-  an.tipiDisegno = [tipi, tipiPrima, date, prima, senza, senzaPrima];
   tab.querySelectorAll('.piu').forEach(b => b.onclick = ev => {
     ev.stopPropagation();
     const k = b.dataset.tipo;
@@ -1004,6 +1132,7 @@ function disegnaTipi(tipi, tipiPrima, date, prima, senza, senzaPrima){
   });
   if (an.tipiAperti.size && !an.tipiTitoli && an.tipiArgs && an.tipiTitoliReq !== an.richiesta) caricaTipiTitoli();
 }
+const TOT_ZERO_IMPORTI = righe => { const x = {}; ['netto_f', 'netto_r', 'lordo_f', 'lordo_r'].forEach(c => x[c] = righe.reduce((a, r) => a + Number(r[c] || 0), 0)); return x; };
 async function caricaTipiTitoli(){
   const n = an.tipiTitoliReq = an.richiesta;
   let r;
@@ -1014,23 +1143,28 @@ async function caricaTipiTitoli(){
   if (an.tipiDisegno) disegnaTipi(...an.tipiDisegno);
 }
 const nTit = n => `${fmtN(n)} ${n === 1 ? 'titolo' : 'titoli'}`;
-// Riga aperta col "+": numero di titoli e copie del tipo (fornite, rese o entrambe secondo il movimento scelto)
-function rigaTitoliCopie(k, tipi){
-  const m = movScelto(), r = tipi.find(x => x.tipo === k) || {}, tt = an.tipiTitoli;
+// Copie fornite e/o rese secondo i dati scelti con i quadratini
+const copieScelte = r => {
+  const m = an.tipiMisure, F = m.has('F') || m.has('V'), R = m.has('R') || m.has('V');
+  return [F ? `${fmtN(Number(r.copie_f || 0))} copie fornite` : '', R ? `${fmtN(Number(r.copie_r || 0))} copie rese` : ''].filter(Boolean).join(' · ');
+};
+// Riga aperta col "+": numero di titoli e copie del tipo
+function rigaTitoliCopie(k, tipi, nCol){
+  const r = tipi.find(x => x.tipo === k) || {}, tt = an.tipiTitoli, soloReso = !an.tipiMisure.has('F') && !an.tipiMisure.has('V');
   const titoli = tt === 'errore' ? 'titoli: calcolo troppo pesante'
-    : !tt ? 'titoli: calcolo…' : nTit(Number(tt.find(x => x.tipo === k)?.[m === 'R' ? 'titoli_r' : 'titoli_f'] || 0));
-  const copie = [m !== 'R' ? `${fmtN(Number(r.copie_f || 0))} copie fornite` : '', m !== 'F' ? `${fmtN(Number(r.copie_r || 0))} copie rese` : ''].filter(Boolean);
-  return `<tr class="sotto-tipo dett-tipo"><td colspan="7"><div style="padding-left:18px;">Totale: <b>${titoli}</b> · ${copie.join(' · ')}</div></td></tr>`;
+    : !tt ? 'titoli: calcolo…' : nTit(Number(tt.find(x => x.tipo === k)?.[soloReso ? 'titoli_r' : 'titoli_f'] || 0));
+  return `<tr class="sotto-tipo dett-tipo"><td colspan="${nCol}"><div style="padding-left:18px;">Totale: <b>${titoli}</b> · ${copieScelte(r)}</div></td></tr>`;
 }
 // Riga "di cui senza lancio" sotto il rifornimento novità: quota sulle novità, clic per l'elenco nella classifica Titoli
-function rigaSenza(sz, szp, novita, novitaPrec, totPrec, quota){
-  const dett = s => s ? `${nTit(s.titoli)} · ${fmtN(s.copie)} copie` : 'non calcolato';
+function rigaSenza(sz, szp, mis, t, novita, totPrec, quota){
+  const dett = s => s ? `${nTit(s.titoli)} · ${copieScelte(s)}` : 'non calcolato';
   return `<tr id="a-tipi-senza" class="cliccabile sotto-tipo${an.senzaYba3 ? ' scelto' : ''}" title="Titoli mai usciti con una bolla di lancio: novità per la data di uscita di Giro Manager. Clic per l'elenco nella classifica Titoli">
     <td><div style="padding-left:18px;">↳ di cui senza lancio</div><div class="st" style="padding-left:18px;">${dett(sz)}</div></td>
-    <td class="num">${sz ? fmtEuro(sz.valore) : '—'}</td><td class="num">${sz ? quota(sz.valore, novita) : '—'}</td>
-    <td class="num">${szp && totPrec ? fmtEuro(szp.valore) : '—'}${szp && totPrec ? `<div class="st">${nTit(szp.titoli)}</div>` : ''}</td>
-    <td class="num">${szp && totPrec ? quota(szp.valore, novitaPrec) : '—'}</td>
-    <td class="num">${sz && szp ? variazione(sz.valore, szp.valore) : ''}</td><td></td></tr>`;
+    ${mis.map(([m]) => {
+      const a = sz ? valMisura(sz, m, t) : null, b = szp ? valMisura(szp, m, t) : null;
+      return `<td class="num">${a == null ? '—' : fmtEuro0(a)}</td><td class="num">${b == null || !totPrec ? '—' : fmtEuro0(b)}</td><td class="num">${a != null && b != null ? variazione(a, b) : ''}</td>`;
+    }).join('')}
+    <td class="num">${sz ? quota(Math.max(0, valMisura(sz, mis[0][0], t)), novita) : '—'}</td><td></td></tr>`;
 }
 // Ciambella SVG: un arco per tipo, totale al centro, descrizione sotto
 function ciambella(valori, tot, titolo, sotto){
@@ -1056,17 +1190,46 @@ function disegnaClienti(righe, tot){
   const quando = descrizioneSelezione(), i = LIVELLI_TAB.findIndex(l => l[0] === an.livello), [, nome, k] = LIVELLI_TAB[i];
   $('a-titolo-clienti').textContent = 'Clienti per ' + nome.toLowerCase() + (quando ? ' · ' + quando : '');
   const ordinate = righe.slice().sort((x, y) => valoreOrdine(y) - valoreOrdine(x)).slice(0, 500);
-  $('a-clienti').innerHTML = ordinate.length ? classifica(ordinate, {
-    titolo: nome, nome: r => r.nome,
+  disegnaClassifica('a-clienti', ordinate, {
+    titolo: nome, nome: r => r.nome, soloImporti: true,
     sotto: r => [an.livello === 'cliente' ? '' : `${fmtN(r.clienti)} clienti`, r.dettaglio].filter(Boolean).join(' · '),
     attr: r => `data-chiave="${esc(r.chiave)}"`, totale: valoreOrdine(tot),
-  }) + (righe.length > 500 ? `<p class="nota" style="margin-top:6px;">I primi 500 di ${fmtN(righe.length)}.</p>` : '')
-    : '<p class="nota">Nessun cliente nel periodo con questi filtri.</p>';
-  collegaCerca('a-cerca-clienti', 'a-clienti', 'a-conta-clienti', [nome.toLowerCase(), k]);
-  $('a-clienti').querySelectorAll('[data-chiave]').forEach(tr => tr.onclick = () => {
-    an.f[k] = new Set([tr.dataset.chiave]);
-    LIVELLI.slice(LIVELLI.findIndex(l => l.k === k) + 1).forEach(l => an.f[l.k] = null);
-    if (i < LIVELLI_TAB.length - 1) an.livello = LIVELLI_TAB[i + 1][0];
+    vuoto: '<p class="nota">Nessun cliente nel periodo con questi filtri.</p>',
+    piede: righe.length > 500 ? `<p class="nota" style="margin-top:6px;">I primi 500 di ${fmtN(righe.length)}.</p>` : '',
+    cerca: ['a-cerca-clienti', 'a-conta-clienti', [nome.toLowerCase(), k]],
+    clic: tr => {
+      an.f[k] = new Set([tr.dataset.chiave]);
+      LIVELLI.slice(LIVELLI.findIndex(l => l.k === k) + 1).forEach(l => an.f[l.k] = null);
+      if (i < LIVELLI_TAB.length - 1) an.livello = LIVELLI_TAB[i + 1][0];
+      aggiornaAnalisi();
+    },
+  });
+}
+// Torta dei canali con la quota sul dato principale: colore fisso per canale, clic su una fetta per filtrarla
+const COLORE_CANALE = { ONLINE: 'var(--canale-1)', CATENE: 'var(--canale-2)', INDIE: 'var(--canale-3)', GROSSISTI: 'var(--canale-4)' };
+function disegnaTortaCanali(righe){
+  const box = $('a-torta-canali');
+  if (!righe) { box.innerHTML = TROPPO; return; }
+  const fette = righe.map(r => ({ nome: r.nome, v: Math.max(0, valoreOrdine(r)) })).filter(f => f.v > 0).sort((x, y) => y.v - x.v);
+  const tot = fette.reduce((a, f) => a + f.v, 0);
+  if (!tot) { box.innerHTML = '<p class="nota">Nessun dato per la torta.</p>'; return; }
+  const cx = 130, cy = 120, R = 92, q = v => (v / tot * 100).toLocaleString('it-IT', { maximumFractionDigits: 1 }) + '%';
+  const colore = n => COLORE_CANALE[n] || 'var(--muted)', punto = (a, r) => [cx + r * Math.sin(a), cy - r * Math.cos(a)];
+  let a0 = 0, disegno = '', etichette = '';
+  fette.forEach(f => {
+    const am = f.v / tot * 2 * Math.PI, a1 = a0 + am, [x0, y0] = punto(a0, R), [x1, y1] = punto(a1, R);
+    const dida = `<title>${esc(f.nome)}: ${fmtEuro0(f.v)} (${q(f.v)})</title>`;
+    disegno += fette.length === 1 ? `<circle cx="${cx}" cy="${cy}" r="${R}" fill="${colore(f.nome)}" data-canale="${esc(f.nome)}">${dida}</circle>`
+      : `<path d="M${cx},${cy} L${x0},${y0} A${R},${R} 0 ${am > Math.PI ? 1 : 0} 1 ${x1},${y1} Z" fill="${colore(f.nome)}" data-canale="${esc(f.nome)}">${dida}</path>`;
+    if (f.v / tot >= .03) { const am2 = a0 + am / 2, [tx, ty] = punto(am2, R + 8); etichette += `<text x="${tx}" y="${ty + 4}" text-anchor="${Math.sin(am2) >= 0 ? 'start' : 'end'}">${q(f.v)}</text>`; }
+    a0 = a1;
+  });
+  box.innerHTML = `<svg viewBox="0 0 260 240" role="img" aria-label="Quota per canale: ${esc(fette.map(f => `${f.nome} ${q(f.v)}`).join(', '))}">${disegno}${etichette}</svg>
+    <div class="torta-leg">${fette.map(f => `<button type="button" data-canale="${esc(f.nome)}"><i style="background:${colore(f.nome)}"></i><span>${esc(f.nome)}</span><span>${q(f.v)}</span></button>`).join('')}</div>`;
+  box.querySelectorAll('[data-canale]').forEach(x => x.onclick = () => {
+    an.f.canali = new Set([x.dataset.canale]);
+    LIVELLI.slice(1).forEach(l => an.f[l.k] = null);
+    an.livello = 'categoria';
     aggiornaAnalisi();
   });
 }
@@ -1089,58 +1252,60 @@ async function caricaTitoli(){
   try { titoli = await rpc('msg_analisi_titoli', { p_date: dateDettaglio(), p_editori: filtroEditori(), p_cerca: $('a-cerca').value.trim() || null, p_limite: 300, p_ordine: chiaveOrdine(), p_clienti: filtroClienti() }); }
   catch (e) { if (n === an.richiesta) $('a-titoli').innerHTML = TROPPO; return; }
   if (n !== an.richiesta) return;
-  const t0 = importiScelti()[0], m = movScelto();
-  $('a-sub-titoli').textContent = `I primi 300 per ${t0} ${m === 'F' ? 'fornito' : m === 'R' ? 'reso' : '(fornito − reso)'}. Clic su un titolo per vederne l'andamento.`;
-  $('a-titoli').innerHTML = titoli.length ? classifica(titoli, {
+  $('a-sub-titoli').textContent = `I primi 300 per ${etiPrincipale().toLowerCase()}. Clic su un titolo per vederne l'andamento.`;
+  disegnaTitoli(titoli, an.tot ? valoreOrdine(an.tot) : 0, '<p class="nota">Nessun titolo nel periodo con questi filtri.</p>');
+}
+function disegnaTitoli(righe, totale, vuoto){
+  disegnaClassifica('a-titoli', righe, {
     titolo: 'Titolo', nome: t => t.titolo, sotto: t => [t.ean, t.editore, t.collana, fmtEuro(t.prezzo)].filter(Boolean).join(' · '),
-    attr: t => `data-ean="${esc(t.ean)}" data-titolo="${esc(t.titolo)}"`, totale: an.tot ? valoreOrdine(an.tot) : 0,
-  }) : '<p class="nota">Nessun titolo nel periodo con questi filtri.</p>';
-  $('a-titoli').querySelectorAll('[data-ean]').forEach(tr => tr.onclick = () => {
-    an.ean = tr.dataset.ean; an.titoloEan = tr.dataset.titolo; aggiornaAnalisi(); window.scrollTo({ top: 0, behavior: 'smooth' });
+    attr: t => `data-ean="${esc(t.ean)}" data-titolo="${esc(t.titolo)}"`, totale, vuoto,
+    clic: tr => { an.ean = tr.dataset.ean; an.titoloEan = tr.dataset.titolo; aggiornaAnalisi(); window.scrollTo({ top: 0, behavior: 'smooth' }); },
   });
 }
-// Classifica Titoli ristretta alle novità senza YBA3 (righe già calcolate per Lanci e rifornimenti)
+// Classifica Titoli ristretta alle novità senza lancio (righe già calcolate per Lanci e rifornimenti)
 function mostraSenzaYba3(){
   document.querySelector('#a-tipi-senza')?.classList.add('scelto');
-  const righe = an.senzaRighe, m = movScelto(), t0 = importiScelti()[0];
+  const righe = an.senzaRighe;
   $('a-titolo-titoli').textContent = 'Titoli · rifornimento novità senza lancio';
-  $('a-sub-titoli').innerHTML = `Solo il rifornimento novità di titoli mai passati da una bolla di lancio, per ${t0} ${m === 'F' ? 'fornito' : m === 'R' ? 'reso' : '(fornito − reso)'}. `
+  $('a-sub-titoli').innerHTML = `Solo il rifornimento novità di titoli mai passati da una bolla di lancio, per ${etiPrincipale().toLowerCase()}. `
     + `<a href="#" id="a-tutti-titoli">Mostra tutti i titoli</a>`;
   $('a-tutti-titoli').onclick = e => { e.preventDefault(); an.senzaYba3 = false; document.querySelector('#a-tipi-senza')?.classList.remove('scelto'); caricaTitoli(); };
   if (!righe) { $('a-titoli').innerHTML = TROPPO; return; }
   const q = $('a-cerca').value.trim().toLowerCase();
-  const ordinate = righe.filter(t => !q || t.ean === q || (t.titolo || '').toLowerCase().includes(q)).slice().sort((x, y) => valoreOrdine(y) - valoreOrdine(x));
-  $('a-titoli').innerHTML = ordinate.length ? classifica(ordinate, {
-    titolo: 'Titolo', nome: t => t.titolo, sotto: t => [t.ean, t.editore, t.collana, fmtEuro(t.prezzo)].filter(Boolean).join(' · '),
-    attr: t => `data-ean="${esc(t.ean)}" data-titolo="${esc(t.titolo)}"`, totale: 0,
-  }) : '<p class="nota">Nessun titolo senza lancio nel periodo con questi filtri.</p>';
-  $('a-titoli').querySelectorAll('[data-ean]').forEach(tr => tr.onclick = () => {
-    an.ean = tr.dataset.ean; an.titoloEan = tr.dataset.titolo; aggiornaAnalisi(); window.scrollTo({ top: 0, behavior: 'smooth' });
-  });
+  disegnaTitoli(righe.filter(t => !q || t.ean === q || (t.titolo || '').toLowerCase().includes(q)), 0, '<p class="nota">Nessun titolo senza lancio nel periodo con questi filtri.</p>');
 }
 
-/* Classifica: posizione, nome con il dettaglio sotto, dato principale (quello su cui si ordina) con la quota
-   sul totale del periodo (barra lunga quanto la riga più alta), poi gli altri valori in tono più leggero */
-function classifica(righe, { titolo, nome, sotto, attr, totale }){
-  const t = importiScelti()[0], m = movScelto();
-  const princ = `${NOME_IMPORTO[t]} ${m === 'F' ? 'fornito' : m === 'R' ? 'reso' : 'F − R'}`;
-  const altre = valori(righe[0]).map(v => v.l).filter(l => l !== princ);
-  const den = totale > 0 ? totale : righe.reduce((a, r) => a + Math.max(0, valoreOrdine(r)), 0);
+/* Classifica: posizione, nome con il dettaglio sotto, valori (il dato principale in evidenza), quota sul totale del
+   periodo con la barra. Clic su un'intestazione: ordina dalla A alla Z o dal maggiore al minore, riclic per invertire.
+   Di base dalla quota maggiore. opzioni: titolo, nome, sotto, attr, totale, vuoto, piede, clic(tr), cerca, soloImporti */
+function disegnaClassifica(id, righe, op){
+  const box = $(id);
+  if (!righe.length) { box.innerHTML = op.vuoto || ''; if (op.cerca) collegaCerca(op.cerca[0], id, op.cerca[1], op.cerca[2]); return; }
+  const princ = etiPrincipale(), scelti = v => !op.soloImporti || v.e != null;
+  const colonne = valori(righe[0]).filter(scelti).map(v => v.l);
+  if (![...colonne, 'nome', 'quota'].includes(ordineDi(id).col)) delete an.ordine[id];
+  const den = op.totale > 0 ? op.totale : righe.reduce((a, r) => a + Math.max(0, valoreOrdine(r)), 0);
   const max = Math.max(1e-9, ...righe.map(r => valoreOrdine(r)));
   const cella = v => v ? (v.e != null ? fmtEuro(v.e) : v.n) : '';
-  return `<div class="tbl-wrap" style="max-height:520px;"><table class="classifica">
-    <tr><th></th><th>${esc(titolo)}</th><th class="num">${esc(princ)}</th><th>Quota</th>${altre.map(l => `<th class="num">${esc(l)}</th>`).join('')}</tr>
-    ${righe.map((r, i) => {
-      const n = nome(r) || '—', st = sotto(r) || '', vs = valori(r), x = valoreOrdine(r);
+  const o = ordineDi(id);
+  const chiave = r => o.col === 'nome' ? (op.nome(r) || '') : o.col === 'quota' ? valoreOrdine(r) : (x => x ? (x.e ?? x.x ?? 0) : 0)(valori(r).find(v => v.l === o.col));
+  const ordinate = righe.map(r => [chiave(r), r]).sort((a, b) => confronta(a[0], b[0], o.dir)).map(x => x[1]);
+  const th = (col, testo, num = true) => `<th class="ord${num ? ' num' : ''}" data-col="${esc(col)}"${num ? '' : ' data-alfa="1"'}>${esc(testo)}${frecciaOrd(id, col)}</th>`;
+  box.innerHTML = `<div class="tbl-wrap" style="max-height:520px;"><table class="classifica">
+    <tr><th></th>${th('nome', op.titolo, false)}${colonne.map(l => th(l, l)).join('')}${th('quota', 'Quota')}</tr>
+    ${ordinate.map((r, i) => {
+      const n = op.nome(r) || '—', st = op.sotto(r) || '', vs = valori(r), x = valoreOrdine(r);
       const q = den ? Math.max(0, x) / den * 100 : 0;
-      return `<tr class="cliccabile" ${attr(r)} data-cerca="${esc((n + ' ' + st).toLowerCase())}">
+      return `<tr class="cliccabile" ${op.attr(r)} data-cerca="${esc((n + ' ' + st).toLowerCase())}">
         <td class="rk">${i + 1}</td>
         <td><div class="nm">${esc(n)}</div>${st ? `<div class="st">${esc(st)}</div>` : ''}</td>
-        <td class="num princ">${cella(vs.find(v => v.l === princ))}</td>
-        <td class="qt"><div class="qt-b"><span><i style="width:${Math.max(0, x) / max * 100}%"></i></span>${q.toLocaleString('it-IT', { maximumFractionDigits: q < 10 ? 1 : 0 })}%</div></td>
-        ${altre.map(l => `<td class="num sec">${cella(vs.find(v => v.l === l))}</td>`).join('')}</tr>`;
+        ${colonne.map(l => `<td class="num ${l === princ ? 'princ' : 'sec'}">${cella(vs.find(v => v.l === l))}</td>`).join('')}
+        <td class="qt"><div class="qt-b"><span><i style="width:${Math.max(0, x) / max * 100}%"></i></span>${q.toLocaleString('it-IT', { maximumFractionDigits: q < 10 ? 1 : 0 })}%</div></td></tr>`;
     }).join('')}
-  </table></div>`;
+  </table></div>${op.piede || ''}`;
+  box.querySelectorAll('th.ord').forEach(h => h.onclick = () => { cambiaOrdine(id, h.dataset.col, !!h.dataset.alfa); disegnaClassifica(id, righe, op); });
+  box.querySelectorAll('tr.cliccabile').forEach(tr => tr.onclick = () => op.clic(tr));
+  if (op.cerca) collegaCerca(op.cerca[0], id, op.cerca[1], op.cerca[2]);
 }
 // Mini ricerca di una classifica: nasconde le righe che non contengono il testo (nome o dettaglio) e dice quante ne restano
 function collegaCerca(idInput, idBox, idConta, [uno, tanti]){
@@ -1657,8 +1822,7 @@ const PQ = { db: null, con: null, file: new Map(), titoli: null, senza: null };
 function usaParquet(nome, a){
   const ed = a.p_editori != null || a.p_ean != null, cl = a.p_clienti != null;
   return nome === 'msg_analisi_andamento' ? cl && ed : nome === 'msg_analisi_clienti' ? ed
-    : nome === 'msg_analisi_editori' ? cl : nome === 'msg_analisi_tipi' ? cl && ed
-    : nome === 'msg_analisi_titoli' || nome === 'msg_analisi_novita_senza_yba3' || nome === 'msg_analisi_tipi_titoli' ? cl : false;
+    : nome === 'msg_analisi_editori' ? cl : nome === 'msg_analisi_tipi' || nome === 'msg_analisi_titoli' || nome === 'msg_analisi_novita_senza_yba3' || nome === 'msg_analisi_tipi_titoli' ? cl : false;
 }
 const sqlTesto = s => `'${String(s).replace(/'/g, "''")}'`;
 const sqlIn = (col, v) => !v.length ? 'false' : `${col} in (${v.map(sqlTesto).join(',')})`;
@@ -1735,7 +1899,7 @@ async function analisiParquet(nome, a){
     const u = a.p_grana === 'mese' ? 'month' : a.p_grana === 'settimana' ? 'week' : 'day';
     return righe(`select strftime(date_trunc('${u}', data)::date, '%Y-%m-%d') periodo, ${SOMME_PQ} from ${m} group by 1 order by 1`);
   }
-  const TIPO_PQ = `case when lancio then 'lancio' when data_uscita is not null and data < data_uscita + interval 6 month then 'novita' else 'classico' end`;
+  const TIPO_PQ = `case when lancio then 'lancio' when data_uscita is not null and data < make_date(year(data_uscita) + 1, 1, 1) then 'novita' else 'classico' end`;
   if (nome === 'msg_analisi_tipi') return righe(`select ${TIPO_PQ} tipo, ${SOMME_PQ} from ${m} group by 1`);
   if (nome === 'msg_analisi_tipi_titoli') {
     return righe(`select tipo, count(*) filter (where cf > 0)::double titoli_f, count(*) filter (where cr > 0)::double titoli_r from (
@@ -1755,7 +1919,7 @@ async function analisiParquet(nome, a){
       PQ.senza ??= rpcDb('msg_parquet_senza_yba3', {}).catch(e => { PQ.senza = null; throw e; });
       const senza = await PQ.senza || [];
       tit = await righe(`select ean, ${SOMME_PQ} from ${m} where ${sqlIn('ean', senza)} and not lancio
-        and data_uscita is not null and data < data_uscita + interval 6 month group by 1`);
+        and data_uscita is not null and data < make_date(year(data_uscita) + 1, 1, 1) group by 1`);
     } else {
       const ordine = { lordo: 'lordo_f - lordo_r', lordo_f: 'lordo_f', lordo_r: 'lordo_r', netto_f: 'netto_f', netto_r: 'netto_r' }[a.p_ordine] || 'netto_f - netto_r';
       const limite = Math.max(1, Math.min(a.p_limite ?? 300, 2000));
@@ -1777,11 +1941,11 @@ async function analisiParquet(nome, a){
     const liv = a.p_livello, gruppi = new Map(), chiavi = Object.keys(TOT_ZERO());
     an.tuttiClienti.forEach(c => {
       const p = perCliente.get(c.codice_cliente); if (!p) return;
-      const ch = liv === 'cliente' ? c.codice_cliente : liv === 'gruppo' ? c.gruppo : liv === 'categoria' ? c.categoria : c.canale;
+      const ch = liv === 'cliente' ? c.codice_cliente : liv === 'gruppo' ? c.gruppo : liv === 'categoria' ? c.categoria : c.canale_gruppo;
       const nm = liv === 'cliente' ? (c.ragione_sociale ?? c.codice_cliente) : ch;
       const luogo = `${c.citta ?? ''} ${c.provincia ?? ''}`.trim();
       const dt = liv === 'cliente' ? [luogo || null, c.gruppo].filter(x => x != null).join(' · ')
-        : liv === 'gruppo' ? c.categoria : liv === 'categoria' ? c.canale : c.canale_gruppo;
+        : liv === 'gruppo' ? c.categoria : liv === 'categoria' ? c.canale_gruppo : null;
       const g = gruppi.get(ch) || { chiave: ch, nome: nm, dettaglio: dt, clienti: 0, ...TOT_ZERO() };
       if (nm != null && (g.nome == null || nm < g.nome)) g.nome = nm;
       if (dt != null && (g.dettaglio == null || dt < g.dettaglio)) g.dettaglio = dt;
