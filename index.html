@@ -663,13 +663,6 @@ function datePrima(date, tuttoIlPeriodo = false){
   return new Map([...out].sort((a, b) => a[0] < b[0] ? -1 : 1));
 }
 
-// YTD: dall'1 gennaio all'ultimo giorno del dettaglio, e lo stesso tratto di calendario dell'anno prima
-function periodoYtd(date){
-  if (!date.length) return null;
-  const al = date[date.length - 1], anno = Number(al.slice(0, 4)), da = `${anno}-01-01`, prima = [];
-  for (let d = annoPrima(da); d <= annoPrima(al); d = piuGiorni(d, 1)) prima.push(d);
-  return { anno, al, ora: an.giorni.filter(g => g >= da && g <= al), prima };
-}
 
 /* Movimento e importo: lordo = copie × prezzo di copertina (come Tableau); netto = importo dopo gli sconti ai clienti */
 const movScelto = () => an.f.mov.size === 2 ? 'FR' : [...an.f.mov][0];
@@ -988,10 +981,9 @@ async function aggiornaDettaglio(n = ++an.richiesta){
   evidenziaGrafico();
   const date = dateDettaglio(), prima = [...datePrima(date).keys()];
   const filtri = { p_editori: filtroEditori(), p_ean: an.ean, p_clienti: filtroClienti() };
-  const ytd = periodoYtd(date);
   // Una richiesta troppo pesante (oltre 8 secondi) non ferma le altre: il suo riquadro lo dice
   const prova = r => r.catch(e => { console.warn(e); return null; });
-  const [editori, andaPrima, tipi, tipiPrima, clienti, senza, senzaPrima, canali, ytdOra, ytdPrima] = await Promise.all([
+  const [editori, andaPrima, tipi, tipiPrima, clienti, senza, senzaPrima, canali, clientiPrima] = await Promise.all([
     prova(rpc('msg_analisi_editori', { p_date: date, p_clienti: filtri.p_clienti })),
     prova(rpc('msg_analisi_andamento', { p_date: prima, ...filtri, p_grana: 'mese' })),
     prova(rpc('msg_analisi_tipi', { p_date: date, ...filtri })),
@@ -1000,10 +992,9 @@ async function aggiornaDettaglio(n = ++an.richiesta){
     prova(rpc('msg_analisi_novita_senza_yba3', { p_date: date, ...filtri })),
     prova(rpc('msg_analisi_novita_senza_yba3', { p_date: prima, ...filtri })),
     an.livello === 'canale' ? null : prova(rpc('msg_analisi_clienti', { p_date: date, p_livello: 'canale', ...filtri })),
-    ytd && prova(rpc('msg_analisi_clienti', { p_date: ytd.ora, p_livello: an.livello, ...filtri })),
-    ytd && prova(rpc('msg_analisi_clienti', { p_date: ytd.prima, p_livello: an.livello, ...filtri })),
+    // Clienti nello stesso periodo dell'anno prima, con gli stessi filtri (anno intero o dal 1/1 = YTD contro YTD)
+    prova(rpc('msg_analisi_clienti', { p_date: prima, p_livello: an.livello, ...filtri })),
   ]);
-  if (ytd) { ytd.righeOra = ytdOra; ytd.righePrima = ytdPrima; }
   if (n !== an.richiesta) return;
   an.senzaRighe = senza;
   an.tipiTitoli = null; an.tipiArgs = { date, filtri };
@@ -1020,7 +1011,7 @@ async function aggiornaDettaglio(n = ++an.richiesta){
   }).join('');
   if (tipi) disegnaTipi(tipi, tipiPrima, date, prima, senza, senzaPrima); else $('a-tipi').innerHTML = TROPPO;
   disegnaTortaCanali(an.livello === 'canale' ? clienti : canali);
-  if (clienti) disegnaClienti(clienti, tot, ytd); else $('a-clienti').innerHTML = TROPPO;
+  if (clienti) disegnaClienti(clienti, tot, { righe: clientiPrima, date, prima }); else $('a-clienti').innerHTML = TROPPO;
   an.elenco = sommaPerGruppo(editori || []);
   const quando = descrizioneSelezione();
   // Tabella editori: solo quelli del filtro; nascosta quando se ne guarda uno solo
@@ -1204,28 +1195,28 @@ function barraComposizione(valori, tot, titolo, sotto, varTot){
 
 /* Clienti per canale, categoria, gruppo o singolo cliente. Clic su una riga: la filtra e scende di livello */
 const LIVELLI_TAB = [['canale', 'Canale', 'canali'], ['categoria', 'Categoria', 'categorie'], ['gruppo', 'Gruppo cliente', 'gruppi'], ['cliente', 'Cliente', 'clienti']];
-function disegnaClienti(righe, tot, ytd){
+function disegnaClienti(righe, tot, prec){
   $('a-livello').innerHTML = LIVELLI_TAB.map(([v, t]) => `<label><input type="radio" name="a-livello" value="${v}"${an.livello === v ? ' checked' : ''}>${t}</label>`).join('');
   $('a-livello').querySelectorAll('input').forEach(c => c.onchange = () => { an.livello = c.value; aggiornaDettaglio(); });
   const quando = descrizioneSelezione(), i = LIVELLI_TAB.findIndex(l => l[0] === an.livello), [, nome, k] = LIVELLI_TAB[i];
   $('a-titolo-clienti').textContent = 'Clienti per ' + nome.toLowerCase() + (quando ? ' · ' + quando : '');
   const ordinate = righe.slice().sort((x, y) => valoreOrdine(y) - valoreOrdine(x)).slice(0, 500);
-  // YTD sul dato principale: quest'anno, anno prima e variazione, per riga (stessa chiave del livello)
+  // Confronto con lo stesso periodo dell'anno prima (stessi filtri), sul dato principale: valore e variazione per riga.
+  // Con "Anno" o un Dal/Al dall'1 gennaio è il YTD contro il YTD dell'anno prima
   let extra = [], nota = '';
-  if (ytd) {
-    const mappa = r => r && new Map(r.map(x => [x.chiave, valoreOrdine(x)]));
-    const ora = mappa(ytd.righeOra), prima = mappa(ytd.righePrima), ap = ytd.anno - 1;
-    const a = r => ora?.get(r.chiave) ?? 0, b = r => prima?.get(r.chiave) ?? 0;
-    const delta = r => b(r) ? a(r) / b(r) - 1 : null;
+  if (prec?.prima?.length) {
+    const anni = [...new Set(prec.date.map(g => g.slice(0, 4)))], ap = anni.length === 1 ? String(Number(anni[0]) - 1) : 'anno prec.';
+    const prima = prec.righe && new Map(prec.righe.map(x => [x.chiave, valoreOrdine(x)]));
+    const a = r => valoreOrdine(r), b = r => prima?.get(r.chiave) ?? 0;
     extra = [
-      { col: 'ytd', testo: `YTD ${ytd.anno}`, val: a, html: r => ora ? fmtEuro0(a(r)) : '—' },
-      { col: 'ytdprec', testo: `YTD ${ap}`, val: b, html: r => prima ? fmtEuro0(b(r)) : '—' },
-      { col: 'ytddelta', testo: 'Δ YTD', val: r => delta(r) ?? -Infinity,
-        html: r => !ora || !prima ? '—' : b(r) ? variazione(a(r), b(r)) : a(r) > 0 ? '<span class="muto">nuovo</span>' : '—' },
+      { col: 'prec', testo: `${etiPrincipale()} ${ap}`, val: b, html: r => prima ? fmtEuro0(b(r)) : '—' },
+      { col: 'var', testo: 'Var.', val: r => b(r) ? a(r) / b(r) - 1 : -Infinity,
+        html: r => !prima ? '—' : b(r) ? variazione(a(r), b(r)) : a(r) > 0 ? '<span class="muto">nuovo</span>' : '—' },
     ];
-    nota = !ora || !prima ? 'YTD: calcolo troppo pesante, riprova.'
-      : `YTD = dall'1/1 al ${fmtGiorno(ytd.al)}, contro lo stesso tratto del ${ap}.`
-        + (an.giorni[0] > `${ap}-01-01` ? ` ⚠ Il ${ap} nel database parte dal ${fmtGiorno(an.giorni[0])}: il YTD ${ap} è parziale.` : '');
+    const p0 = prec.prima[0], pN = prec.prima[prec.prima.length - 1];
+    nota = !prima ? 'Anno prec.: calcolo troppo pesante, riprova.'
+      : `Confronto con ${fmtGiorno(p0)} – ${fmtGiorno(pN)}.`
+        + (an.giorni[0] > p0 ? ` ⚠ Nel database i dati partono dal ${fmtGiorno(an.giorni[0])}: il confronto è parziale.` : '');
   }
   $('a-nota-ytd').textContent = nota;
   disegnaClassifica('a-clienti', ordinate, {
