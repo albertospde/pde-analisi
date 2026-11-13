@@ -51,3 +51,12 @@ jobs:
           python scripts/archivia_parquet.py
         env:
           MSG_IMPORT_CRON_KEY: ${{ secrets.MSG_IMPORT_CRON_KEY }}
+      # Dal 13/11/2026: esclusioni (editori New Entry prima dell'ingresso, clienti esclusi per editore) sui file
+      # che stanno solo in Parquet. Qui si calcolano e si propongono; il database le applica di notte
+      # (docs/sql/2026-11-13-esclusioni.sql, pg_cron msg-esclusioni). Legge tutti i Parquet (~30 MB): solo
+      # all'avvio da Supabase o a mano e all'ultimo passaggio programmato, non a ogni passaggio di riserva.
+      - name: Esclusioni sui file in Parquet
+        if: always() && (github.event_name == 'workflow_dispatch' || github.event.schedule == '47 9 * * *')
+        run: python scripts/esclusioni.py
+        env:
+          MSG_IMPORT_CRON_KEY: ${{ secrets.MSG_IMPORT_CRON_KEY }}

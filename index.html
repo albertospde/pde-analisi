@@ -164,6 +164,20 @@ th.ord .fr{font-size:10px;margin-left:3px;}
 .torta-canali svg{width:260px;height:240px;overflow:visible;display:block;}
 .torta-canali path,.torta-canali circle{cursor:pointer;stroke:var(--card);stroke-width:2;}
 .torta-canali text{font-size:12px;font-weight:600;fill:var(--text);font-variant-numeric:tabular-nums;}
+/* Ciambella: entrata a ventaglio, fetta evidenziata che si stacca, le altre attenuate */
+.torta-canali .fette{transform-origin:130px 120px;animation:torta-in .7s cubic-bezier(.2,.8,.2,1) backwards;}
+.torta-canali .fetta{transition:transform .25s cubic-bezier(.2,.8,.2,1),opacity .2s,filter .2s;animation:fetta-in .45s ease-out backwards;outline:none;}
+.torta-canali .eti{transition:opacity .2s;}
+.torta-canali.attiva .fetta,.torta-canali.attiva .eti{opacity:.3;}
+.torta-canali.attiva .fetta.on,.torta-canali.attiva .eti.on{opacity:1;}
+.torta-canali .fetta.on{transform:translate(var(--dx),var(--dy)) scale(1.04);transform-origin:130px 120px;filter:drop-shadow(0 3px 6px rgba(0,0,0,.18));}
+.torta-canali .centro-n{font-size:12px;font-weight:600;fill:var(--muted);}
+.torta-canali .centro-v{font-size:16px;font-weight:700;fill:var(--text);}
+.torta-canali .centro-q{font-size:11px;font-weight:600;fill:var(--muted);}
+.torta-leg button.on{background:var(--card-2);}
+@keyframes torta-in{from{transform:rotate(-100deg) scale(.7);opacity:.35;}}
+@keyframes fetta-in{from{opacity:.35;}}
+@media (prefers-reduced-motion:reduce){.torta-canali .fette,.torta-canali .fetta{animation:none;}.torta-canali .fetta{transition:opacity .2s;}}
 .torta-leg{display:grid;gap:4px;margin-top:6px;font-size:12px;}
 .torta-leg button{display:grid;grid-template-columns:12px 1fr auto;gap:8px;align-items:center;background:none;border:0;color:var(--text);font:inherit;padding:2px 4px;border-radius:4px;cursor:pointer;text-align:left;}
 .torta-leg button:hover{background:var(--card-2);}
@@ -238,10 +252,11 @@ button.piu:hover,button.piu[aria-expanded="true"]{background:var(--card-2);}
 .classifica .qt-b span{flex:1;height:6px;border-radius:3px;background:var(--griglia);overflow:hidden;}
 .classifica .qt-b span i{display:block;height:100%;border-radius:3px;background:var(--serie-1);}
 .classifica td.sec{color:var(--muted);white-space:nowrap;}
-/* Colonne YTD (clienti): separate dai valori del periodo */
-.classifica td.ytd{white-space:nowrap;}
-.classifica td.ytd-primo{border-left:1px solid var(--border);padding-left:14px;}
-.classifica td.ytd .muto{color:var(--muted);}
+/* Variazione sull'anno prima sotto i valori (clienti) e "var. %" sotto le intestazioni per ordinare */
+.classifica .dv{font-size:11px;font-weight:600;margin-top:2px;color:var(--muted);}
+.classifica .dv.su{color:var(--su);} .classifica .dv.giu{color:var(--giu);}
+.classifica .th-var{font-size:10px;font-weight:500;letter-spacing:.02em;text-transform:none;color:var(--muted);margin-top:2px;}
+.classifica .th-var:hover{color:var(--text);text-decoration:underline;}
 #a-clienti .classifica td:nth-child(2){min-width:170px;}
 .classifica tr.nascosta{display:none;}
 tr.cliccabile:hover td{background:var(--card-2);}
@@ -362,7 +377,7 @@ td.muto{color:var(--muted);}
       <div class="card" id="a-card-editori">
         <div class="viz-testa"><h2 id="a-titolo-editori">Editori</h2>
           <input type="search" class="cerca-mini" id="a-cerca-editori" placeholder="Cerca editore…" aria-label="Cerca negli editori"></div>
-        <p class="sub"><span id="a-conta-editori"></span>Clic su un editore per vederne andamento e titoli.</p>
+        <p class="sub"><span id="a-conta-editori"></span>Clic su un editore per vederne andamento e titoli. <span id="a-nota-ed"></span></p>
         <div id="a-editori"></div>
       </div>
       <div class="card">
@@ -983,7 +998,7 @@ async function aggiornaDettaglio(n = ++an.richiesta){
   const filtri = { p_editori: filtroEditori(), p_ean: an.ean, p_clienti: filtroClienti() };
   // Una richiesta troppo pesante (oltre 8 secondi) non ferma le altre: il suo riquadro lo dice
   const prova = r => r.catch(e => { console.warn(e); return null; });
-  const [editori, andaPrima, tipi, tipiPrima, clienti, senza, senzaPrima, canali, clientiPrima] = await Promise.all([
+  const [editori, andaPrima, tipi, tipiPrima, clienti, senza, senzaPrima, canali, clientiPrima, editoriPrima] = await Promise.all([
     prova(rpc('msg_analisi_editori', { p_date: date, p_clienti: filtri.p_clienti })),
     prova(rpc('msg_analisi_andamento', { p_date: prima, ...filtri, p_grana: 'mese' })),
     prova(rpc('msg_analisi_tipi', { p_date: date, ...filtri })),
@@ -994,6 +1009,8 @@ async function aggiornaDettaglio(n = ++an.richiesta){
     an.livello === 'canale' ? null : prova(rpc('msg_analisi_clienti', { p_date: date, p_livello: 'canale', ...filtri })),
     // Clienti nello stesso periodo dell'anno prima, con gli stessi filtri (anno intero o dal 1/1 = YTD contro YTD)
     prova(rpc('msg_analisi_clienti', { p_date: prima, p_livello: an.livello, ...filtri })),
+    // Editori nello stesso periodo dell'anno prima, con gli stessi clienti
+    prova(rpc('msg_analisi_editori', { p_date: prima, p_clienti: filtri.p_clienti })),
   ]);
   if (n !== an.richiesta) return;
   an.senzaRighe = senza;
@@ -1018,7 +1035,10 @@ async function aggiornaDettaglio(n = ++an.richiesta){
   const righeEd = editoriFiltrati();
   $('a-card-editori').classList.toggle('hidden', righeEd.length <= 1 && !!filtroEditori());
   $('a-titolo-editori').textContent = 'Editori' + (quando ? ' · ' + quando : '');
+  const cfEd = confrontoAnnoPrima({ righe: editoriPrima && sommaPerGruppo(editoriPrima), date, prima }, e => e.editore);
+  $('a-nota-ed').textContent = cfEd.nota;
   disegnaClassifica('a-editori', righeEd, {
+    confronto: cfEd.confronto, annoPrec: cfEd.annoPrec, chiaveConfronto: e => e.editore,
     titolo: 'Editore', nome: e => e.editore, sotto: e => [e.codici ? `cod. ${e.codici}` : '', `${fmtN(e.titoli)} titoli`].filter(Boolean).join(' · '),
     attr: e => `data-editore="${esc(e.editore)}"`, totale: valoreOrdine(tot),
     vuoto: editori ? '<p class="nota">Nessun editore nel periodo con questi filtri.</p>' : TROPPO,
@@ -1195,32 +1215,32 @@ function barraComposizione(valori, tot, titolo, sotto, varTot){
 
 /* Clienti per canale, categoria, gruppo o singolo cliente. Clic su una riga: la filtra e scende di livello */
 const LIVELLI_TAB = [['canale', 'Canale', 'canali'], ['categoria', 'Categoria', 'categorie'], ['gruppo', 'Gruppo cliente', 'gruppi'], ['cliente', 'Cliente', 'clienti']];
+// Confronto di una classifica con lo stesso periodo dell'anno prima: mappa chiave → riga, etichetta dell'anno,
+// nota sotto il titolo (date confrontate e avviso se il database non copre tutto l'anno prima).
+// prec = { righe (null = calcolo non riuscito), date, prima }
+function confrontoAnnoPrima(prec, chiave){
+  if (!prec?.prima?.length) return { confronto: undefined, annoPrec: '', nota: '' };
+  const anni = [...new Set(prec.date.map(g => g.slice(0, 4)))];
+  const annoPrec = anni.length === 1 ? String(Number(anni[0]) - 1) : 'Anno prec.';
+  const confronto = prec.righe ? new Map(prec.righe.map(x => [chiave(x), x])) : null;
+  const p0 = prec.prima[0], pN = prec.prima[prec.prima.length - 1];
+  const nota = !confronto ? 'Variazioni: calcolo dell\'anno prima troppo pesante, riprova.'
+    : `Variazioni rispetto a ${fmtGiorno(p0)} – ${fmtGiorno(pN)}; sul reso il verde è un calo.`
+      + (an.giorni[0] > p0 ? ` ⚠ Nel database i dati partono dal ${fmtGiorno(an.giorni[0])}: il confronto è parziale.` : '');
+  return { confronto, annoPrec, nota };
+}
 function disegnaClienti(righe, tot, prec){
   $('a-livello').innerHTML = LIVELLI_TAB.map(([v, t]) => `<label><input type="radio" name="a-livello" value="${v}"${an.livello === v ? ' checked' : ''}>${t}</label>`).join('');
   $('a-livello').querySelectorAll('input').forEach(c => c.onchange = () => { an.livello = c.value; aggiornaDettaglio(); });
   const quando = descrizioneSelezione(), i = LIVELLI_TAB.findIndex(l => l[0] === an.livello), [, nome, k] = LIVELLI_TAB[i];
   $('a-titolo-clienti').textContent = 'Clienti per ' + nome.toLowerCase() + (quando ? ' · ' + quando : '');
   const ordinate = righe.slice().sort((x, y) => valoreOrdine(y) - valoreOrdine(x)).slice(0, 500);
-  // Confronto con lo stesso periodo dell'anno prima (stessi filtri), sul dato principale: valore e variazione per riga.
-  // Con "Anno" o un Dal/Al dall'1 gennaio è il YTD contro il YTD dell'anno prima
-  let extra = [], nota = '';
-  if (prec?.prima?.length) {
-    const anni = [...new Set(prec.date.map(g => g.slice(0, 4)))], ap = anni.length === 1 ? String(Number(anni[0]) - 1) : 'anno prec.';
-    const prima = prec.righe && new Map(prec.righe.map(x => [x.chiave, valoreOrdine(x)]));
-    const a = r => valoreOrdine(r), b = r => prima?.get(r.chiave) ?? 0;
-    extra = [
-      { col: 'prec', testo: `${etiPrincipale()} ${ap}`, val: b, html: r => prima ? fmtEuro0(b(r)) : '—' },
-      { col: 'var', testo: 'Var.', val: r => b(r) ? a(r) / b(r) - 1 : -Infinity,
-        html: r => !prima ? '—' : b(r) ? variazione(a(r), b(r)) : a(r) > 0 ? '<span class="muto">nuovo</span>' : '—' },
-    ];
-    const p0 = prec.prima[0], pN = prec.prima[prec.prima.length - 1];
-    nota = !prima ? 'Anno prec.: calcolo troppo pesante, riprova.'
-      : `Confronto con ${fmtGiorno(p0)} – ${fmtGiorno(pN)}.`
-        + (an.giorni[0] > p0 ? ` ⚠ Nel database i dati partono dal ${fmtGiorno(an.giorni[0])}: il confronto è parziale.` : '');
-  }
+  // Confronto con lo stesso periodo dell'anno prima (stessi filtri): sotto ogni valore la variazione.
+  // Con un Dal/Al dall'1 gennaio è il YTD contro il YTD dell'anno prima
+  const { confronto, annoPrec, nota } = confrontoAnnoPrima(prec, x => x.chiave);
   $('a-nota-ytd').textContent = nota;
   disegnaClassifica('a-clienti', ordinate, {
-    titolo: nome, nome: r => r.nome, soloImporti: true, extra,
+    titolo: nome, nome: r => r.nome, soloImporti: true, confronto, annoPrec, chiaveConfronto: r => r.chiave,
     sotto: r => [an.livello === 'cliente' ? '' : `${fmtN(r.clienti)} clienti`, r.dettaglio].filter(Boolean).join(' · '),
     attr: r => `data-chiave="${esc(r.chiave)}"`, totale: valoreOrdine(tot),
     vuoto: '<p class="nota">Nessun cliente nel periodo con questi filtri.</p>',
@@ -1242,24 +1262,49 @@ function disegnaTortaCanali(righe){
   const fette = righe.map(r => ({ nome: r.nome, v: Math.max(0, valoreOrdine(r)) })).filter(f => f.v > 0).sort((x, y) => y.v - x.v);
   const tot = fette.reduce((a, f) => a + f.v, 0);
   if (!tot) { box.innerHTML = '<p class="nota">Nessun dato per la torta.</p>'; return; }
-  const cx = 130, cy = 120, R = 92, q = v => (v / tot * 100).toLocaleString('it-IT', { maximumFractionDigits: 1 }) + '%';
-  const colore = n => COLORE_CANALE[n] || 'var(--muted)', punto = (a, r) => [cx + r * Math.sin(a), cy - r * Math.cos(a)];
+  // Ciambella: passando su una fetta (o sulla sua voce in legenda) la fetta si stacca, le altre si attenuano
+  // e al centro compaiono nome, importo e quota; senza mouse il centro mostra il totale
+  const cx = 130, cy = 120, R = 92, r = 58, q = v => (v / tot * 100).toLocaleString('it-IT', { maximumFractionDigits: 1 }) + '%';
+  const colore = n => COLORE_CANALE[n] || 'var(--muted)', punto = (a, rr) => [cx + rr * Math.sin(a), cy - rr * Math.cos(a)];
   let a0 = 0, disegno = '', etichette = '';
-  fette.forEach(f => {
-    const am = f.v / tot * 2 * Math.PI, a1 = a0 + am, [x0, y0] = punto(a0, R), [x1, y1] = punto(a1, R);
-    const dida = `<title>${esc(f.nome)}: ${fmtEuro0(f.v)} (${q(f.v)})</title>`;
-    disegno += fette.length === 1 ? `<circle cx="${cx}" cy="${cy}" r="${R}" fill="${colore(f.nome)}" data-canale="${esc(f.nome)}">${dida}</circle>`
-      : `<path d="M${cx},${cy} L${x0},${y0} A${R},${R} 0 ${am > Math.PI ? 1 : 0} 1 ${x1},${y1} Z" fill="${colore(f.nome)}" data-canale="${esc(f.nome)}">${dida}</path>`;
-    if (f.v / tot >= .03) { const am2 = a0 + am / 2, [tx, ty] = punto(am2, R + 8); etichette += `<text x="${tx}" y="${ty + 4}" text-anchor="${Math.sin(am2) >= 0 ? 'start' : 'end'}">${q(f.v)}</text>`; }
+  fette.forEach((f, i) => {
+    const am = f.v / tot * 2 * Math.PI, a1 = a0 + am, mezzo = a0 + am / 2, big = am > Math.PI ? 1 : 0;
+    const [x0, y0] = punto(a0, R), [x1, y1] = punto(a1, R), [x2, y2] = punto(a1, r), [x3, y3] = punto(a0, r);
+    const d = fette.length === 1
+      ? `M${cx},${cy - R} A${R},${R} 0 1 1 ${cx - .01},${cy - R} Z M${cx},${cy - r} A${r},${r} 0 1 0 ${cx + .01},${cy - r} Z`
+      : `M${x0},${y0} A${R},${R} 0 ${big} 1 ${x1},${y1} L${x2},${y2} A${r},${r} 0 ${big} 0 ${x3},${y3} Z`;
+    const [dx, dy] = [Math.sin(mezzo) * 8, -Math.cos(mezzo) * 8];
+    disegno += `<path class="fetta" d="${d}" fill="${colore(f.nome)}" fill-rule="evenodd" data-canale="${esc(f.nome)}" data-i="${i}"
+      style="--dx:${dx.toFixed(1)}px;--dy:${dy.toFixed(1)}px;animation-delay:${i * 70}ms"><title>${esc(f.nome)}: ${fmtEuro0(f.v)} (${q(f.v)})</title></path>`;
+    if (f.v / tot >= .03) { const [tx, ty] = punto(mezzo, R + 10); etichette += `<text class="eti" data-i="${i}" x="${tx}" y="${ty + 4}" text-anchor="${Math.sin(mezzo) >= 0 ? 'start' : 'end'}">${q(f.v)}</text>`; }
     a0 = a1;
   });
-  box.innerHTML = `<svg viewBox="0 0 260 240" role="img" aria-label="Quota per canale: ${esc(fette.map(f => `${f.nome} ${q(f.v)}`).join(', '))}">${disegno}${etichette}</svg>
-    <div class="torta-leg">${fette.map(f => `<button type="button" data-canale="${esc(f.nome)}"><i style="background:${colore(f.nome)}"></i><span>${esc(f.nome)}</span><span>${q(f.v)}</span></button>`).join('')}</div>`;
-  box.querySelectorAll('[data-canale]').forEach(x => x.onclick = () => {
-    an.f.canali = new Set([x.dataset.canale]);
-    LIVELLI.slice(1).forEach(l => an.f[l.k] = null);
-    an.livello = 'categoria';
-    aggiornaAnalisi();
+  box.innerHTML = `<svg viewBox="0 0 260 240" role="img" aria-label="Quota per canale: ${esc(fette.map(f => `${f.nome} ${q(f.v)}`).join(', '))}">
+      <g class="fette">${disegno}</g>${etichette}
+      <text class="centro-n" x="${cx}" y="${cy - 6}" text-anchor="middle"></text>
+      <text class="centro-v" x="${cx}" y="${cy + 13}" text-anchor="middle"></text>
+      <text class="centro-q" x="${cx}" y="${cy + 29}" text-anchor="middle"></text></svg>
+    <div class="torta-leg">${fette.map((f, i) => `<button type="button" data-canale="${esc(f.nome)}" data-i="${i}"><i style="background:${colore(f.nome)}"></i><span>${esc(f.nome)}</span><span>${q(f.v)}</span></button>`).join('')}</div>`;
+  const centro = f => {
+    box.querySelector('.centro-n').textContent = f ? f.nome : 'Totale';
+    box.querySelector('.centro-v').textContent = fmtEuro0(f ? f.v : tot);
+    box.querySelector('.centro-q').textContent = f ? q(f.v) : etiPrincipale();
+  };
+  const evidenzia = i => {
+    box.classList.toggle('attiva', i != null);
+    box.querySelectorAll('[data-i]').forEach(x => x.classList.toggle('on', x.dataset.i === String(i)));
+    centro(i != null ? fette[i] : null);
+  };
+  centro(null);
+  box.querySelectorAll('[data-canale]').forEach(x => {
+    x.onmouseenter = x.onfocus = () => evidenzia(Number(x.dataset.i));
+    x.onmouseleave = x.onblur = () => evidenzia(null);
+    x.onclick = () => {
+      an.f.canali = new Set([x.dataset.canale]);
+      LIVELLI.slice(1).forEach(l => an.f[l.k] = null);
+      an.livello = 'categoria';
+      aggiornaAnalisi();
+    };
   });
 }
 
@@ -1306,36 +1351,55 @@ function mostraSenzaYba3(){
 
 /* Classifica: posizione, nome con il dettaglio sotto, valori (il dato principale in evidenza), quota sul totale del
    periodo con la barra. Clic su un'intestazione: ordina dalla A alla Z o dal maggiore al minore, riclic per invertire.
-   Di base dalla quota maggiore. opzioni: titolo, nome, sotto, attr, totale, vuoto, piede, clic(tr), cerca, soloImporti */
+   Di base dalla quota maggiore. opzioni: titolo, nome, sotto, attr, totale, vuoto, piede, clic(tr), cerca, soloImporti;
+   confronto (Map chiave → riga dell'anno prima; null = calcolo non riuscito), chiaveConfronto(r), annoPrec: sotto ogni
+   valore la variazione sull'anno prima, e sotto ogni intestazione "var. %" per ordinare per variazione */
 function disegnaClassifica(id, righe, op){
   const box = $(id);
   if (!righe.length) { box.innerHTML = op.vuoto || ''; if (op.cerca) collegaCerca(op.cerca[0], id, op.cerca[1], op.cerca[2]); return; }
   const princ = etiPrincipale(), scelti = v => !op.soloImporti || v.e != null;
-  const colonne = valori(righe[0]).filter(scelti).map(v => v.l), extra = op.extra || [];
-  if (![...colonne, ...extra.map(c => c.col), 'nome', 'quota'].includes(ordineDi(id).col)) delete an.ordine[id];
+  const colonne = valori(righe[0]).filter(scelti).map(v => v.l), conVar = op.confronto !== undefined;
+  if (![...colonne, ...(conVar ? colonne.map(l => l + '|var') : []), 'nome', 'quota'].includes(ordineDi(id).col)) delete an.ordine[id];
   const den = op.totale > 0 ? op.totale : righe.reduce((a, r) => a + Math.max(0, valoreOrdine(r)), 0);
   const max = Math.max(1e-9, ...righe.map(r => valoreOrdine(r)));
   const cella = v => v ? (v.e != null ? fmtEuro(v.e) : v.n) : '';
+  const num = (r, l) => (x => x ? (x.e ?? x.x ?? 0) : 0)(r && valori(r).find(v => v.l === l));
+  // Valore dell'anno prima e variazione di una colonna (null = nessun confronto possibile)
+  const prima = (r, l) => num(op.confronto?.get(op.chiaveConfronto(r)), l);
+  const varia = (r, l) => { const b = prima(r, l); return b ? num(r, l) / b - 1 : null; };
+  // Sotto il valore: freccia e percentuale; sul reso il colore è invertito (più reso = rosso)
+  const sottoValore = (r, l) => {
+    if (!op.confronto || l === 'Resa') return '';   // la resa è già una percentuale: niente variazione
+    const a = num(r, l), b = prima(r, l), euro = (r && valori(r).find(v => v.l === l))?.e != null;
+    const tit = `title="${esc(op.annoPrec)}: ${b ? (euro ? fmtEuro(b) : fmtN(b)) : 'nessun valore'}"`;
+    if (!b) return a ? `<div class="dv" ${tit}>nuovo</div>` : '';
+    const p = (a / b - 1) * 100, reso = /reso|rese/i.test(l), bene = reso ? p <= 0 : p >= 0;
+    return `<div class="dv ${bene ? 'su' : 'giu'}" ${tit}>${p >= 0 ? '▲ +' : '▼ '}${p.toLocaleString('it-IT', { maximumFractionDigits: 1 })}%</div>`;
+  };
   const o = ordineDi(id);
-  const ex = extra.find(c => c.col === o.col);
-  const chiave = r => o.col === 'nome' ? (op.nome(r) || '') : o.col === 'quota' ? valoreOrdine(r) : ex ? ex.val(r)
-    : (x => x ? (x.e ?? x.x ?? 0) : 0)(valori(r).find(v => v.l === o.col));
+  const chiave = r => o.col === 'nome' ? (op.nome(r) || '') : o.col === 'quota' ? valoreOrdine(r)
+    : o.col.endsWith('|var') ? (varia(r, o.col.slice(0, -4)) ?? -Infinity) : num(r, o.col);
   const ordinate = righe.map(r => [chiave(r), r]).sort((a, b) => confronta(a[0], b[0], o.dir)).map(x => x[1]);
-  const th = (col, testo, num = true) => `<th class="ord${num ? ' num' : ''}" data-col="${esc(col)}"${num ? '' : ' data-alfa="1"'}>${esc(testo)}${frecciaOrd(id, col)}</th>`;
+  const th = (col, testo, num = true) => `<th class="ord${num ? ' num' : ''}" data-col="${esc(col)}"${num ? '' : ' data-alfa="1"'}>${esc(testo)}${frecciaOrd(id, col)}`
+    + (num && conVar && col !== 'quota' && col !== 'Resa' ? `<div class="th-var" data-col="${esc(col)}|var" title="Ordina per variazione sull'anno prima">var. %${frecciaOrd(id, col + '|var')}</div>` : '') + '</th>';
   box.innerHTML = `<div class="tbl-wrap" style="max-height:520px;"><table class="classifica">
-    <tr><th></th>${th('nome', op.titolo, false)}${colonne.map(l => th(l, l)).join('')}${th('quota', 'Quota')}${extra.map(c => th(c.col, c.testo)).join('')}</tr>
+    <tr><th></th>${th('nome', op.titolo, false)}${colonne.map(l => th(l, l)).join('')}${th('quota', 'Quota')}</tr>
     ${ordinate.map((r, i) => {
       const n = op.nome(r) || '—', st = op.sotto(r) || '', vs = valori(r), x = valoreOrdine(r);
       const q = den ? Math.max(0, x) / den * 100 : 0;
       return `<tr class="cliccabile" ${op.attr(r)} data-cerca="${esc((n + ' ' + st).toLowerCase())}">
         <td class="rk">${i + 1}</td>
         <td><div class="nm">${esc(n)}</div>${st ? `<div class="st">${esc(st)}</div>` : ''}</td>
-        ${colonne.map(l => `<td class="num ${l === princ ? 'princ' : 'sec'}">${cella(vs.find(v => v.l === l))}</td>`).join('')}
-        <td class="qt"><div class="qt-b"><span><i style="width:${Math.max(0, x) / max * 100}%"></i></span>${q.toLocaleString('it-IT', { maximumFractionDigits: q < 10 ? 1 : 0 })}%</div></td>
-        ${extra.map((c, j) => `<td class="num ${j ? 'sec' : ''} ytd${j ? '' : ' ytd-primo'}">${c.html(r)}</td>`).join('')}</tr>`;
+        ${colonne.map(l => `<td class="num ${l === princ ? 'princ' : 'sec'}">${cella(vs.find(v => v.l === l))}${conVar ? sottoValore(r, l) : ''}</td>`).join('')}
+        <td class="qt"><div class="qt-b"><span><i style="width:${Math.max(0, x) / max * 100}%"></i></span>${q.toLocaleString('it-IT', { maximumFractionDigits: q < 10 ? 1 : 0 })}%</div></td></tr>`;
     }).join('')}
   </table></div>${op.piede || ''}`;
-  box.querySelectorAll('th.ord').forEach(h => h.onclick = () => { cambiaOrdine(id, h.dataset.col, !!h.dataset.alfa); disegnaClassifica(id, righe, op); });
+  // Clic sul nome della colonna: ordina per valore; su "var. %": per variazione
+  box.querySelectorAll('th.ord').forEach(h => h.onclick = ev => {
+    const c = ev.target.closest('[data-col]');
+    cambiaOrdine(id, c.dataset.col, !!h.dataset.alfa && c === h);
+    disegnaClassifica(id, righe, op);
+  });
   box.querySelectorAll('tr.cliccabile').forEach(tr => tr.onclick = () => op.clic(tr));
   if (op.cerca) collegaCerca(op.cerca[0], id, op.cerca[1], op.cerca[2]);
 }
@@ -1900,6 +1964,21 @@ async function preparaParquet(date){
     })();
   }
   await PQ.titoli;
+  // Regole di esclusione (docs/sql/2026-11-13-esclusioni.sql): i Parquet sono grezzi, qui si tolgono le stesse
+  // righe che i riepiloghi del database non contano (editori nuovi prima dell'ingresso, clienti esclusi per editore)
+  if (!PQ.regole) {
+    PQ.regole = (async () => {
+      const r = await rpcDb('msg_esclusioni_regole', {}).catch(e => { console.warn('Esclusioni:', e); return null; }) || {};
+      const tsv = (testa, righe) => testa + '\n' + righe.map(x => x.map(v => String(v ?? '').replace(/[\t\n\r]/g, ' ')).join('\t')).join('\n');
+      await PQ.db.registerFileText('escl_ing.tsv', tsv('editore\tdal', (r.ingressi || []).map(x => [x.editore, x.dal])));
+      await PQ.db.registerFileText('escl_cli.tsv', tsv('editore\tcodice_cliente', (r.clienti || []).map(x => [x.editore, x.codice_cliente])));
+      await con.query(`create or replace table escl_ing as select * from read_csv('escl_ing.tsv', delim='\t', header=true, quote='', escape='',
+        columns={'editore':'VARCHAR','dal':'DATE'})`);
+      await con.query(`create or replace table escl_cli as select * from read_csv('escl_cli.tsv', delim='\t', header=true, quote='', escape='',
+        columns={'editore':'VARCHAR','codice_cliente':'VARCHAR'})`);
+    })();
+  }
+  await PQ.regole;
   const nomi = elenco.filter(f => f.percorso).map(f => PQ.file.get(chiave(f)));
   return { con, giorni, sorgente: nomi.length ? `read_parquet([${nomi.map(sqlTesto).join(',')}])` : null };
 }
@@ -1924,6 +2003,8 @@ async function analisiParquet(nome, a){
     cerca = [...x.data, ...y.data].map(r => r.ean);
     filtri.push(sqlIn('m.ean', cerca));
   }
+  filtri.push(`not exists (select 1 from escl_ing i where i.editore = t.editore and m.data < i.dal)`,
+    `not exists (select 1 from escl_cli x where x.editore = t.editore and x.codice_cliente = m.codice_cliente)`);
   const m = `(select m.*, t.editore, t.codice_editore, t.data_uscita from ${sorgente} m left join titoli t using (ean) where ${filtri.join(' and ')})`;
   const righe = async sql => (await con.query(sql)).toArray().map(r => ({ ...r }));
 
