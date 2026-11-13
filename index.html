@@ -118,7 +118,12 @@ html[data-theme="light"]{ --serie-1:#2a78d6; --serie-2:#eb6834; --griglia:rgba(2
 .chip-filtro{display:inline-flex;align-items:center;gap:8px;background:var(--card-2);border:1px solid var(--border);border-radius:20px;padding:4px 6px 4px 12px;font-size:13px;margin:0 8px 12px 0;}
 .chip-filtro button{background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:0 6px;}
 /* Pannello filtri a scomparsa: riquadri con scelta multipla, un solo "Applica" */
-.filtri-barra{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;margin-bottom:12px;}
+.filtri-barra{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;}
+/* Filtri sempre in vista: attaccati sotto l'intestazione (altezza misurata in --alto-header); il pannello aperto
+   scorre per conto suo se è più alto dello schermo */
+.filtri-fissi{position:sticky;top:var(--alto-header,57px);z-index:15;background:var(--bg);margin:0 -4px 12px;padding:8px 4px;}
+.filtri-fissi.staccato{box-shadow:0 6px 12px -8px rgba(0,0,0,.35);}
+.filtri-fissi .pannello-filtri{margin-top:10px;max-height:calc(100vh - var(--alto-header,57px) - 90px);overflow:auto;}
 .f-riepilogo{display:flex;flex-wrap:wrap;gap:6px;flex:1 1 300px;}
 .f-riepilogo .chip-filtro{margin:0;}
 .f-riepilogo .chip-filtro.semplice{padding:4px 12px;}
@@ -199,6 +204,13 @@ th.ord .fr{font-size:10px;margin-left:3px;}
 .compo .seg b{font-size:14px;}
 .compo .seg span{opacity:.9;}
 .compo.evid .seg:not(.on){opacity:.3;}
+/* Tipo scelto come filtro di tutta la pagina: gli altri restano attenuati, lo scelto ha il bordo */
+.torte tr[data-i]{cursor:pointer;}
+.compo.filtrato .seg:not(.scelto),.torte table.filtrato tr[data-i]:not(.scelto){opacity:.3;}
+.compo.filtrato.evid .seg.on,.torte table.filtrato.evid tr[data-i].on{opacity:.75;}
+.compo .seg.scelto{box-shadow:inset 0 0 0 3px rgba(255,255,255,.85);}
+.torte table tr[data-i].scelto td:first-child{font-weight:700;}
+.f-scelte.f-colonna{flex-direction:column;align-items:flex-start;}
 .compo .seg-vuoto{flex:1;}
 @media (max-width:600px){ .compo-riga{grid-template-columns:1fr;gap:4px;} .compo-anno{flex-direction:row;gap:8px;align-items:baseline;flex-wrap:wrap;} }
 .su{color:var(--su);} .giu{color:var(--giu);}
@@ -310,6 +322,8 @@ td.muto{color:var(--muted);}
   <section id="view-analisi">
     <!-- Filtri: barra con il riepilogo; il pannello si apre e si chiude. Le scelte nel pannello
          valgono solo con "Applica" (Annulla le scarta). -->
+    <!-- Barra e pannello restano in vista scorrendo la pagina (sotto l'intestazione) -->
+    <div class="filtri-fissi" id="f-fissi">
     <div class="filtri-barra">
       <button type="button" class="btn btn-sec" id="f-apri" aria-expanded="false" aria-controls="f-pannello">⚙ Filtri <span id="f-freccia">▾</span></button>
       <div id="f-riepilogo" class="f-riepilogo"></div>
@@ -318,6 +332,7 @@ td.muto{color:var(--muted);}
       <div class="f-griglia">
         <div class="f-box"><div class="f-testa"><span>Movimento</span></div><div class="f-scelte" id="f-mov"></div></div>
         <div class="f-box"><div class="f-testa"><span>Importo</span></div><div class="f-scelte" id="f-imp"></div></div>
+        <div class="f-box"><div class="f-testa"><span>Lanci e rifornimenti</span></div><div class="f-scelte f-colonna" id="f-tipi"></div></div>
         <div class="f-box"><div class="f-testa"><span>Raggruppa per</span></div><div class="f-scelte" id="f-grana"></div></div>
         <div class="f-box"><div class="f-testa"><span>Periodo rapido</span></div><div class="f-rapidi" id="f-rapidi"></div>
           <div class="f-dalal"><label>Dal <input type="date" id="a-da"></label><label>Al <input type="date" id="a-a"></label></div></div>
@@ -351,6 +366,7 @@ td.muto{color:var(--muted);}
         <button type="button" class="btn btn-sec" id="f-azzera">Azzera filtri</button>
         <button type="button" class="btn btn-sec" id="f-annulla">Annulla</button>
         <button type="button" class="btn btn-primary" id="f-applica">Applica</button></div>
+    </div>
     </div>
     <div id="a-vuoto" class="empty hidden"><div class="big">📊</div><p>Nessun dato importato. Importa i file PPSVMAGG da <a href="#sftp" id="a-vai-sftp">SFTP Messaggerie</a>.</p></div>
     <div id="a-contenuto">
@@ -587,9 +603,13 @@ function giorniDaRegola(r){
 }
 // All'apertura: il mese in corso giorno per giorno, in lordo (come Tableau)
 const filtriIniziali = () => ({ date: giorniRapido('mese'), regola: { rapido: 'mese' }, mov: new Set(['F', 'R']), imp: new Set(['lordo']), grana: 'giorno', account: null, editori: null,
-  canali: null, categorie: null, gruppi: null, clienti: null });
+  canali: null, categorie: null, gruppi: null, clienti: null, tipi: null });
 const copiaFiltri = f => ({ ...f, date: new Set(f.date), mov: new Set(f.mov), imp: new Set(f.imp), account: f.account && new Set(f.account), editori: f.editori && new Set(f.editori),
-  ...Object.fromEntries(LIVELLI.map(l => [l.k, f[l.k] && new Set(f[l.k])])) });
+  tipi: f.tipi && new Set(f.tipi), ...Object.fromEntries(LIVELLI.map(l => [l.k, f[l.k] && new Set(f[l.k])])) });
+// Tipo (lancio, rifornimento novità, rifornimento catalogo): null = tutti. Con un tipo scelto i calcoli passano
+// ai Parquet (DuckDB nella pagina), che hanno il dettaglio per movimento
+const filtroTipi = () => an.f.tipi && an.f.tipi.size && an.f.tipi.size < 3 ? [...an.f.tipi] : null;
+const descrizioneTipi = () => (filtroTipi() || []).map(k => TIPI.find(t => t[0] === k)[1]).join(', ');
 
 // Editori ammessi da account ed editori scelti (f = filtri applicati o bozza)
 const editoreAmmesso = (f, e) => (!f.account || f.account.has(accountDi(e))) && (!f.editori || f.editori.has(e.editore));
@@ -735,6 +755,14 @@ async function avviaAnalisi(){
 /* ── Pannello filtri ── */
 function preparaPannello(){
   const p = $('f-pannello');
+  // Barra dei filtri fissa sotto l'intestazione: altezza dell'intestazione in --alto-header, ombra quando la pagina scorre
+  const testa = document.querySelector('header');
+  const misura = () => { if (testa) document.documentElement.style.setProperty('--alto-header', testa.offsetHeight + 'px'); };
+  misura();
+  if (testa) new ResizeObserver(misura).observe(testa);
+  window.addEventListener('resize', misura);
+  const fissi = $('f-fissi');
+  window.addEventListener('scroll', () => fissi.classList.toggle('staccato', fissi.getBoundingClientRect().top <= (testa?.offsetHeight || 0) + 1 && window.scrollY > 0), { passive: true });
   $('f-apri').onclick = () => p.classList.contains('hidden') ? apriPannello() : chiudiPannello();
   $('f-annulla').onclick = chiudiPannello;
   $('f-azzera').onclick = () => { an.b = filtriIniziali(); disegnaPannello(); };
@@ -744,7 +772,9 @@ function preparaPannello(){
     if (b.account && b.account.size === tuttiAccount().length) b.account = null;
     if (b.editori && editoriBozza().every(e => b.editori.has(e.editore))) b.editori = null;
     LIVELLI.forEach((l, i) => { if (b[l.k] && valoriLivello(b, i).every(v => b[l.k].has(v))) b[l.k] = null; });
+    if (b.tipi && b.tipi.size === TIPI.length) b.tipi = null;
     an.f = b; an.ean = null; an.selGrafico = new Set();
+    allineaMisureTipi();
     chiudiPannello();
     aggiornaAnalisi();
   };
@@ -755,6 +785,7 @@ function preparaPannello(){
     const c = e.target, k = c.dataset.k, b = an.b;
     if (!k || !b) return;
     if (k === 'mov' || k === 'imp') c.checked ? b[k].add(c.value) : b[k].delete(c.value);
+    if (k === 'tipo') { if (!b.tipi) b.tipi = new Set(TIPI.map(t => t[0])); c.checked ? b.tipi.add(c.value) : b.tipi.delete(c.value); }
     if (k === 'grana') b.grana = c.value;
     if (k === 'giorno') { c.checked ? b.date.add(c.value) : b.date.delete(c.value); b.regola = regolaMesi(b.date); }
     if (k === 'mese') { giorniDelMese(c.value).forEach(g => c.checked ? b.date.add(g) : b.date.delete(g)); b.regola = regolaMesi(b.date); }
@@ -841,6 +872,8 @@ function disegnaPannello(da, a){
   const b = an.b;
   $('f-mov').innerHTML = spunta('mov', 'F', b.mov.has('F'), 'Fornito') + spunta('mov', 'R', b.mov.has('R'), 'Reso');
   $('f-imp').innerHTML = spunta('imp', 'lordo', b.imp.has('lordo'), 'Lordo') + spunta('imp', 'netto', b.imp.has('netto'), 'Netto');
+  $('f-tipi').innerHTML = TIPI.map(([k, nome, c]) => spunta('tipo', k, !b.tipi || b.tipi.has(k),
+    `<i style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${c};margin-right:6px;"></i>${nome}`)).join('');
   $('f-grana').innerHTML = [['giorno', 'Giorno'], ['settimana', 'Settimana'], ['mese', 'Mese']].map(([v, t]) => scelta('grana', v, b.grana === v, t)).join('');
   $('f-rapidi').innerHTML = rapidi().map(([v, t]) => `<button type="button" class="btn btn-sec btn-sm${b.regola?.rapido === v ? ' attivo' : ''}" data-rapido="${v}">${t}</button>`).join('');
   const scelti = [...b.date].sort();
@@ -899,7 +932,7 @@ function disegnaEditori(){
 function controllaBozza(){
   const b = an.b;
   const err = !b.date.size ? 'Scegli almeno un giorno.' : !b.mov.size ? 'Scegli fornito, reso o entrambi.'
-    : !b.imp.size ? 'Scegli lordo, netto o entrambi.' : !editoriBozza().some(e => !b.editori || b.editori.has(e.editore)) ? 'Scegli almeno un editore.'
+    : !b.imp.size ? 'Scegli lordo, netto o entrambi.' : b.tipi && !b.tipi.size ? 'Scegli almeno un tipo tra lanci e rifornimenti.' : !editoriBozza().some(e => !b.editori || b.editori.has(e.editore)) ? 'Scegli almeno un editore.'
     : !clientiFino(b, LIVELLI.length).length ? 'Scegli almeno un cliente.' : '';
   $('f-errore').textContent = err;
   $('f-applica').disabled = !!err;
@@ -920,6 +953,7 @@ function disegnaRiepilogo(){
     chip(movScelto() === 'FR' ? 'Fornito e reso' : movScelto() === 'F' ? 'Solo fornito' : 'Solo reso'),
     chip(importiScelti().map((t, i) => i ? t : NOME_IMPORTO[t]).join(' e ')),
     chip('Per ' + f.grana),
+    filtroTipi() ? chip(esc(descrizioneTipi()), 'tipi') : '',
     f.account ? chip(esc(nAcc === 1 ? 'Account: ' + nomeAccount([...f.account][0]) : `${nAcc} account`), 'account') : '',
     f.editori ? chip(esc('Editori: ' + descrizioneEditori()), 'editori') : '',
     ...LIVELLI.map(l => f[l.k] ? chip(esc(`${l.nome}: ${descrizioneLivello(l)}`), l.k) : ''),
@@ -928,6 +962,7 @@ function disegnaRiepilogo(){
   ].join('');
   $('f-riepilogo').querySelectorAll('[data-togli]').forEach(x => x.onclick = () => {
     if (x.dataset.togli === 'grafico') { an.selGrafico.clear(); aggiornaDettaglio(); return; }
+    if (x.dataset.togli === 'tipi') { an.f.tipi = null; aggiornaAnalisi(); return; }
     if (x.dataset.togli === 'account') an.f.account = null;
     if (x.dataset.togli === 'editori') an.f.editori = null;
     if (LIVELLI.some(l => l.k === x.dataset.togli)) { an.f[x.dataset.togli] = null; aggiornaAnalisi(); return; }
@@ -950,7 +985,7 @@ async function aggiornaAnalisi(){
   if (an.b) chiudiPannello();
   disegnaRiepilogo();
   // Anno precedente giorno per giorno (stessa data), poi sommato nei periodi del grafico di quest'anno
-  const filtri = { p_editori: filtroEditori(), p_ean: an.ean, p_clienti: filtroClienti() };
+  const filtri = { p_editori: filtroEditori(), p_ean: an.ean, p_clienti: filtroClienti(), p_tipi: filtroTipi() };
   // (a grana giorno i giorni 2025 senza una barra 2026 corrispondente restano fuori dal grafico)
   const scelte = new Set(dateScelte());
   const iv = intervalloDi(an.f);
@@ -995,26 +1030,28 @@ async function aggiornaDettaglio(n = ++an.richiesta){
   disegnaRiepilogo();
   evidenziaGrafico();
   const date = dateDettaglio(), prima = [...datePrima(date).keys()];
-  const filtri = { p_editori: filtroEditori(), p_ean: an.ean, p_clienti: filtroClienti() };
+  // Lanci e rifornimenti mostra sempre i tre tipi (quelli non scelti si attenuano): lì niente filtro sul tipo
+  const filtriT = { p_editori: filtroEditori(), p_ean: an.ean, p_clienti: filtroClienti() };
+  const filtri = { ...filtriT, p_tipi: filtroTipi() };
   // Una richiesta troppo pesante (oltre 8 secondi) non ferma le altre: il suo riquadro lo dice
   const prova = r => r.catch(e => { console.warn(e); return null; });
   const [editori, andaPrima, tipi, tipiPrima, clienti, senza, senzaPrima, canali, clientiPrima, editoriPrima] = await Promise.all([
-    prova(rpc('msg_analisi_editori', { p_date: date, p_clienti: filtri.p_clienti })),
+    prova(rpc('msg_analisi_editori', { p_date: date, p_clienti: filtri.p_clienti, p_tipi: filtri.p_tipi })),
     prova(rpc('msg_analisi_andamento', { p_date: prima, ...filtri, p_grana: 'mese' })),
-    prova(rpc('msg_analisi_tipi', { p_date: date, ...filtri })),
-    prova(rpc('msg_analisi_tipi', { p_date: prima, ...filtri })),
+    prova(rpc('msg_analisi_tipi', { p_date: date, ...filtriT })),
+    prova(rpc('msg_analisi_tipi', { p_date: prima, ...filtriT })),
     prova(rpc('msg_analisi_clienti', { p_date: date, p_livello: an.livello, ...filtri })),
-    prova(rpc('msg_analisi_novita_senza_yba3', { p_date: date, ...filtri })),
-    prova(rpc('msg_analisi_novita_senza_yba3', { p_date: prima, ...filtri })),
+    prova(rpc('msg_analisi_novita_senza_yba3', { p_date: date, ...filtriT })),
+    prova(rpc('msg_analisi_novita_senza_yba3', { p_date: prima, ...filtriT })),
     an.livello === 'canale' ? null : prova(rpc('msg_analisi_clienti', { p_date: date, p_livello: 'canale', ...filtri })),
     // Clienti nello stesso periodo dell'anno prima, con gli stessi filtri (anno intero o dal 1/1 = YTD contro YTD)
     prova(rpc('msg_analisi_clienti', { p_date: prima, p_livello: an.livello, ...filtri })),
     // Editori nello stesso periodo dell'anno prima, con gli stessi clienti
-    prova(rpc('msg_analisi_editori', { p_date: prima, p_clienti: filtri.p_clienti })),
+    prova(rpc('msg_analisi_editori', { p_date: prima, p_clienti: filtri.p_clienti, p_tipi: filtri.p_tipi })),
   ]);
   if (n !== an.richiesta) return;
   an.senzaRighe = senza;
-  an.tipiTitoli = null; an.tipiArgs = { date, filtri };
+  an.tipiTitoli = null; an.tipiArgs = { date, filtri: filtriT };
   const righe = an.selGrafico.size ? an.serie.filter(x => an.selGrafico.has(x.periodo)) : an.serie;
   const tot = somma(righe), totPrima = somma(andaPrima || []);
   an.tot = tot;
@@ -1082,12 +1119,17 @@ function disegnaTipi(tipi, tipiPrima, date, prima, senza, senzaPrima){
   $('a-titolo-tipi').textContent = 'Lanci e rifornimenti';
   $('a-legenda-tipi').innerHTML = TIPI.map(([, nome, c]) => `<span><i style="background:${c}"></i>${nome}</span>`).join('');
   const estremi = d => d.length ? (d.length === 1 ? fmtGiorno(d[0]) : `${fmtGiorno(d[0])} – ${fmtGiorno(d[d.length - 1])}`) : '';
-  $('a-sub-tipi').textContent = `Novità: rifornimenti nell'anno di uscita del titolo; catalogo: dagli anni dopo. Confronto con ${estremi(prima) || "l'anno precedente"}. Barre e quota su: ${nome0.toLowerCase()}.`;
+  $('a-sub-tipi').textContent = `Novità: rifornimenti nell'anno di uscita del titolo; catalogo: dagli anni dopo. Confronto con ${estremi(prima) || "l'anno precedente"}. Barre e quota su: ${nome0.toLowerCase()}. `
+    + (filtroTipi() ? `Pagina filtrata su: ${descrizioneTipi().toLowerCase()} (riclic per togliere).` : 'Clic su un tipo per filtrare tutta la pagina (Ctrl + clic per sceglierne più d\'uno).');
   $('a-misure-tipi').innerHTML = MISURE.map(([k, nome]) => `<label><input type="checkbox" value="${k}"${an.tipiMisure.has(k) ? ' checked' : ''}>${nome}</label>`).join('');
+  // I quadratini sono anche il filtro del movimento di tutta la pagina: Fornito → solo fornito, Reso → solo reso,
+  // Venduto o Fornito + Reso → fornito e reso (dato principale = venduto)
   $('a-misure-tipi').querySelectorAll('input').forEach(c => c.onchange = () => {
     if (!c.checked && an.tipiMisure.size === 1) { c.checked = true; return; }   // almeno un dato
     c.checked ? an.tipiMisure.add(c.value) : an.tipiMisure.delete(c.value);
-    disegnaTipi(...an.tipiDisegno);
+    const m = an.tipiMisure, mov = new Set([...(m.has('F') || m.has('V') ? ['F'] : []), ...(m.has('R') || m.has('V') ? ['R'] : [])]);
+    if ([...mov].sort().join() !== [...an.f.mov].sort().join()) { an.f.mov = mov; aggiornaAnalisi(); }
+    else disegnaTipi(...an.tipiDisegno);
   });
   const quota = (v, tot) => tot ? (v / tot * 100).toLocaleString('it-IT', { maximumFractionDigits: 1 }) + '%' : '—';
   const anni = [...new Set(date.map(g => g.slice(0, 4)))];
@@ -1151,6 +1193,24 @@ function disegnaTipi(tipi, tipiPrima, date, prima, senza, senzaPrima){
     tr.onpointerenter = () => evidenzia(Number(tr.dataset.i));
     tr.onpointerleave = () => evidenzia(null);
   });
+  // Clic su un tipo (pezzo di barra o riga): filtra tutta la pagina su quel tipo; riclic per togliere;
+  // Ctrl (o ⌘) + clic per aggiungerne o toglierne uno alla scelta
+  const scelti = new Set(filtroTipi() || []);
+  compo.classList.toggle('filtrato', scelti.size > 0);
+  tab.classList.toggle('filtrato', scelti.size > 0);
+  box.querySelectorAll('.seg, tr[data-i]').forEach(x => {
+    x.classList.toggle('scelto', scelti.has(TIPI[Number(x.dataset.i)][0]));
+    x.onclick = ev => {
+      if (ev.target.closest('.piu')) return;
+      const k = TIPI[Number(x.dataset.i)][0], s = new Set(filtroTipi() || []);
+      if (ev.ctrlKey || ev.metaKey) s.has(k) ? s.delete(k) : s.add(k);
+      else if (s.size === 1 && s.has(k)) s.clear();
+      else { s.clear(); s.add(k); }
+      an.f.tipi = s.size && s.size < TIPI.length ? s : null;
+      an.selGrafico = new Set();
+      aggiornaAnalisi();
+    };
+  });
   tab.querySelectorAll('th.ord').forEach(h => h.onclick = () => { cambiaOrdine(ID, h.dataset.col, !!h.dataset.alfa); disegnaTipi(...an.tipiDisegno); });
   const rs = tab.querySelector('#a-tipi-senza');
   if (rs) rs.onclick = () => { an.senzaYba3 = !an.senzaYba3; caricaTitoli(); if (an.senzaYba3) $('a-titoli').closest('.card').scrollIntoView({ behavior: 'smooth' }); };
@@ -1162,6 +1222,13 @@ function disegnaTipi(tipi, tipiPrima, date, prima, senza, senzaPrima){
     disegnaTipi(...an.tipiDisegno);
   });
   if (an.tipiAperti.size && !an.tipiTitoli && an.tipiArgs && an.tipiTitoliReq !== an.richiesta) caricaTipiTitoli();
+}
+// Quadratini di Lanci e rifornimenti allineati al movimento scelto nei filtri
+function allineaMisureTipi(){
+  const mov = [...an.f.mov].sort().join(), m = an.tipiMisure;
+  const att = [...new Set([...(m.has('F') || m.has('V') ? ['F'] : []), ...(m.has('R') || m.has('V') ? ['R'] : [])])].sort().join();
+  if (att === mov) return;
+  an.tipiMisure = new Set(mov === 'F' ? ['F'] : mov === 'R' ? ['R'] : ['F', 'R', 'V']);
 }
 const TOT_ZERO_IMPORTI = righe => { const x = {}; ['netto_f', 'netto_r', 'lordo_f', 'lordo_r'].forEach(c => x[c] = righe.reduce((a, r) => a + Number(r[c] || 0), 0)); return x; };
 async function caricaTipiTitoli(){
@@ -1323,7 +1390,7 @@ async function caricaTitoli(){
   if (an.senzaYba3) return mostraSenzaYba3();
   const nomeEd = descrizioneEditori(), quando = descrizioneSelezione();
   $('a-titolo-titoli').textContent = 'Titoli' + (nomeEd ? ' · ' + nomeEd : '') + (quando ? ' · ' + quando : '');
-  try { titoli = await rpc('msg_analisi_titoli', { p_date: dateDettaglio(), p_editori: filtroEditori(), p_cerca: $('a-cerca').value.trim() || null, p_limite: 300, p_ordine: chiaveOrdine(), p_clienti: filtroClienti() }); }
+  try { titoli = await rpc('msg_analisi_titoli', { p_date: dateDettaglio(), p_editori: filtroEditori(), p_cerca: $('a-cerca').value.trim() || null, p_limite: 300, p_ordine: chiaveOrdine(), p_clienti: filtroClienti(), p_tipi: filtroTipi() }); }
   catch (e) { if (n === an.richiesta) $('a-titoli').innerHTML = TROPPO; return; }
   if (n !== an.richiesta) return;
   $('a-sub-titoli').textContent = `I primi 300 per ${etiPrincipale().toLowerCase()}. Clic su un titolo per vederne l'andamento.`;
@@ -1902,6 +1969,7 @@ function leggiPpsvmagg(testo){
 
 async function rpc(nome, args){
   if (usaParquet(nome, args)) return analisiParquet(nome, args);
+  if ('p_tipi' in args) { args = { ...args }; delete args.p_tipi; }   // le RPC del database non hanno il tipo
   return rpcDb(nome, args);
 }
 async function rpcDb(nome, args){
@@ -1916,6 +1984,7 @@ async function rpcDb(nome, args){
    stesse colonne e stessi conti delle RPC msg_analisi_*, che per tutti gli altri filtri usano i riepiloghi. */
 const PQ = { db: null, con: null, file: new Map(), titoli: null, senza: null };
 function usaParquet(nome, a){
+  if (a.p_tipi != null && /^msg_analisi_(andamento|clienti|editori|tipi|titoli|novita_senza_yba3|tipi_titoli)$/.test(nome)) return true;
   const ed = a.p_editori != null || a.p_ean != null, cl = a.p_clienti != null;
   return nome === 'msg_analisi_andamento' ? cl && ed : nome === 'msg_analisi_clienti' ? ed
     : nome === 'msg_analisi_editori' ? cl : nome === 'msg_analisi_tipi' || nome === 'msg_analisi_titoli' || nome === 'msg_analisi_novita_senza_yba3' || nome === 'msg_analisi_tipi_titoli' ? cl : false;
@@ -1994,6 +2063,8 @@ async function analisiParquet(nome, a){
   if (a.p_clienti != null) filtri.push(sqlIn('m.codice_cliente', a.p_clienti));
   if (a.p_editori != null) filtri.push(sqlIn('t.editore', a.p_editori));
   if (a.p_ean != null) filtri.push(`m.ean = ${sqlTesto(a.p_ean)}`);
+  if (a.p_tipi != null) filtri.push(sqlIn(`case when m.lancio then 'lancio' when t.data_uscita is not null and m.data < make_date(year(t.data_uscita) + 1, 1, 1)
+    then 'novita' else 'classico' end`, a.p_tipi));
   let cerca = null;
   if (nome === 'msg_analisi_titoli' && a.p_cerca) {
     const [x, y] = await Promise.all([
