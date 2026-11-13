@@ -264,6 +264,15 @@ button.piu:hover,button.piu[aria-expanded="true"]{background:var(--card-2);}
 .classifica .qt-b span{flex:1;height:6px;border-radius:3px;background:var(--griglia);overflow:hidden;}
 .classifica .qt-b span i{display:block;height:100%;border-radius:3px;background:var(--serie-1);}
 .classifica td.sec{color:var(--muted);white-space:nowrap;}
+/* Venduto: colonne e indicatore con lo sfondo colorato (colori pieni: le intestazioni restano ferme scorrendo) */
+:root{ --vend-bg:#123642; --vend-bordo:#1f5a52; }
+html[data-theme="light"]{ --vend-bg:#e6f5ec; --vend-bordo:#b5e0c6; }
+th.vend,td.vend{background:var(--vend-bg) !important;}
+.classifica td.vend.sec{color:var(--text);}
+.kpi.vend{background:var(--vend-bg);border-color:var(--vend-bordo);}
+/* Colonne GfK: separate dalle colonne Messaggerie da un filo a sinistra */
+.classifica th.gfk,.classifica td.gfk{border-left:1px solid var(--border);white-space:nowrap;}
+.classifica td.gfk{font-weight:600;}
 /* Variazione sull'anno prima sotto i valori (clienti) e "var. %" sotto le intestazioni per ordinare */
 .classifica .dv{font-size:11px;font-weight:600;margin-top:2px;color:var(--muted);}
 .classifica .dv.su{color:var(--su);} .classifica .dv.giu{color:var(--giu);}
@@ -372,7 +381,7 @@ td.muto{color:var(--muted);}
     <div id="a-contenuto">
       <div class="kpi-riga" id="a-kpi"></div>
       <div class="card">
-        <div class="viz-testa"><h2 id="a-titolo-grafico">Copie fornite e rese</h2>
+        <div class="viz-testa"><h2 id="a-titolo-grafico">Fornito e reso in valore</h2>
           <div class="legenda" id="a-legenda"></div></div>
         <p class="sub">Clic su una barra per vedere sotto solo quel periodo; riclicca per tornare a tutto. Ctrl+clic per sceglierne più d'uno.</p>
         <div id="a-grafico" class="grafico"></div>
@@ -707,20 +716,26 @@ const NOME_IMPORTO = { lordo: 'Lordo', netto: 'Netto' };
 const etiImporto = (t, quale) => importiScelti().length > 1 ? `${NOME_IMPORTO[t]} ${quale.toLowerCase()}` : quale;
 // Etichetta del dato principale (Fornito, Reso o, con entrambi, Venduto = fornito − reso)
 const etiPrincipale = () => etiImporto(importiScelti()[0], { F: 'Fornito', R: 'Reso', FR: 'Venduto' }[movScelto()]);
-// Colonne / indicatori per un oggetto con copie_f, copie_r, netto_f, netto_r, lordo_f, lordo_r
+// Colonne / indicatori per un oggetto con copie_f, copie_r, netto_f, netto_r, lordo_f, lordo_r.
+// Prima i valori (contano di più), poi le copie; vend = colonna del venduto (sfondo colorato)
 function valori(x){
   const m = movScelto(), F = m !== 'R', R = m !== 'F', v = [];
-  if (F) v.push({ l: 'Fornite', n: fmtN(x.copie_f), x: Number(x.copie_f), k: 'Copie fornite' });
-  if (R) v.push({ l: 'Rese', n: fmtN(x.copie_r), x: Number(x.copie_r), k: 'Copie rese' });
-  if (F && R) v.push({ l: 'Resa', n: fmtPerc(Number(x.copie_r), Number(x.copie_f)), x: Number(x.copie_f) ? Number(x.copie_r) / Number(x.copie_f) : 0, k: 'Resa', s: 'rese su fornite' });
   importiScelti().forEach(t => {
     const f = Number(x[t + '_f']), r = Number(x[t + '_r']);
     if (F) v.push({ l: etiImporto(t, 'Fornito'), e: f });
     if (R) v.push({ l: etiImporto(t, 'Reso'), e: r });
-    if (F && R) v.push({ l: etiImporto(t, 'Venduto'), e: f - r });
+    if (F && R) v.push({ l: etiImporto(t, 'Venduto'), e: f - r, vend: true });
   });
+  if (F) v.push({ l: 'Fornite', n: fmtN(x.copie_f), x: Number(x.copie_f), k: 'Copie fornite' });
+  if (R) v.push({ l: 'Rese', n: fmtN(x.copie_r), x: Number(x.copie_r), k: 'Copie rese' });
+  if (F && R) v.push({ l: 'Vendute', n: fmtN(Number(x.copie_f) - Number(x.copie_r)), x: Number(x.copie_f) - Number(x.copie_r), k: 'Copie vendute', vend: true });
+  if (F && R) v.push({ l: 'Resa', n: fmtPerc(Number(x.copie_r), Number(x.copie_f)), x: Number(x.copie_f) ? Number(x.copie_r) / Number(x.copie_f) : 0, k: 'Resa', s: 'rese su fornite' });
   return v;
 }
+// Sconto medio ai clienti: 1 − netto / lordo (lordo = prezzo di copertina), sul fornito (sul reso se si guarda solo il reso)
+const scontoMedio = x => { const s = movScelto() === 'R' ? '_r' : '_f', l = Number(x['lordo' + s] || 0), n = Number(x['netto' + s] || 0);
+  return l > 0 ? 1 - n / l : null; };
+const fmtSconto = s => s == null ? '—' : (s * 100).toLocaleString('it-IT', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%';
 // Importo su cui ordinare: il primo scelto, sul movimento scelto (FR = fornito − reso)
 const chiaveOrdine = () => importiScelti()[0] + ({ F: '_f', R: '_r', FR: '' })[movScelto()];
 const valoreOrdine = x => { const t = importiScelti()[0], m = movScelto();
@@ -1010,9 +1025,10 @@ async function aggiornaAnalisi(){
   }
   an.selGrafico = new Set([...an.selGrafico].filter(p => anda.some(x => x.periodo === p)));
   const mov = movScelto(), nomeEd = descrizioneEditori();
-  $('a-titolo-grafico').textContent = `Copie ${mov === 'F' ? 'fornite' : mov === 'R' ? 'rese' : 'fornite e rese'}${an.ean ? ' · ' + (an.titoloEan || an.ean) : nomeEd ? ' · ' + nomeEd : ''}`;
-  $('a-legenda').innerHTML = (mov !== 'R' ? '<span><i style="background:var(--serie-1)"></i>Fornite</span>' : '')
-    + (mov !== 'F' ? '<span><i style="background:var(--serie-2)"></i>Rese</span>' : '')
+  const impG = importiScelti().length > 1 ? ' ' + NOME_IMPORTO[importiScelti()[0]].toLowerCase() : '';
+  $('a-titolo-grafico').textContent = `${mov === 'F' ? 'Fornito' : mov === 'R' ? 'Reso' : 'Fornito e reso'}${impG} in valore${an.ean ? ' · ' + (an.titoloEan || an.ean) : nomeEd ? ' · ' + nomeEd : ''}`;
+  $('a-legenda').innerHTML = (mov !== 'R' ? '<span><i style="background:var(--serie-1)"></i>Fornito</span>' : '')
+    + (mov !== 'F' ? '<span><i style="background:var(--serie-2)"></i>Reso</span>' : '')
     + (an.seriePrima.size ? '<span><i class="leg-prec"></i>Anno precedente</span>' : '');
   disegnaGrafico(anda);
   await aggiornaDettaglio(n);
@@ -1048,6 +1064,7 @@ async function aggiornaDettaglio(n = ++an.richiesta){
     prova(rpc('msg_analisi_clienti', { p_date: prima, p_livello: an.livello, ...filtri })),
     // Editori nello stesso periodo dell'anno prima, con gli stessi clienti
     prova(rpc('msg_analisi_editori', { p_date: prima, p_clienti: filtri.p_clienti, p_tipi: filtri.p_tipi })),
+    caricaGfk(),
   ]);
   if (n !== an.richiesta) return;
   an.senzaRighe = senza;
@@ -1060,9 +1077,18 @@ async function aggiornaDettaglio(n = ++an.richiesta){
     const p = vp[i], a = v.e ?? v.x, b = p.e ?? p.x;
     const confronto = !andaPrima ? 'anno prec.: non calcolato' : !conPrima ? 'anno prec.: nessun dato'
       : v.l === 'Resa' ? `anno prec. ${p.n}` : `anno prec. ${p.e != null ? fmtEuro0(p.e) : p.n} ${variazione(a, b)}`;
-    return `<div class="kpi"><div class="kpi-l">${esc(v.k || v.l)}</div>
+    return `<div class="kpi${v.vend ? ' vend' : ''}"><div class="kpi-l">${esc(v.k || v.l)}</div>
       <div class="kpi-n">${v.e != null ? fmtEuro0(v.e) : v.n}</div>${v.s ? `<div class="kpi-s">${v.s}</div>` : ''}<div class="kpi-s">${confronto}</div></div>`;
-  }).join('');
+  }).join('')
+    // Sconto medio ai clienti (netto su lordo); la variazione è in punti
+    + (() => {
+      const s = scontoMedio(tot), sp = conPrima ? scontoMedio(totPrima) : null;
+      const d = s != null && sp != null ? (s - sp) * 100 : null;
+      const dpt = d == null ? '' : ` <span class="${d <= 0 ? 'su' : 'giu'}">${d >= 0 ? '+' : ''}${d.toLocaleString('it-IT', { maximumFractionDigits: 1 })} pt</span>`;
+      return `<div class="kpi"><div class="kpi-l">Sconto medio clienti</div><div class="kpi-n">${fmtSconto(s)}</div>
+        <div class="kpi-s">${movScelto() === 'R' ? 'sul reso' : 'sul fornito'}: netto su prezzo di copertina</div>
+        <div class="kpi-s">${!andaPrima ? 'anno prec.: non calcolato' : !conPrima ? 'anno prec.: nessun dato' : `anno prec. ${fmtSconto(sp)}${dpt}`}</div></div>`;
+    })();
   if (tipi) disegnaTipi(tipi, tipiPrima, date, prima, senza, senzaPrima); else $('a-tipi').innerHTML = TROPPO;
   disegnaTortaCanali(an.livello === 'canale' ? clienti : canali);
   if (clienti) disegnaClienti(clienti, tot, { righe: clientiPrima, date, prima }); else $('a-clienti').innerHTML = TROPPO;
@@ -1070,12 +1096,14 @@ async function aggiornaDettaglio(n = ++an.richiesta){
   const quando = descrizioneSelezione();
   // Tabella editori: solo quelli del filtro; nascosta quando se ne guarda uno solo
   const righeEd = editoriFiltrati();
-  $('a-card-editori').classList.toggle('hidden', righeEd.length <= 1 && !!filtroEditori());
+  // Nascosta anche con un titolo filtrato (gli editori non seguono il filtro sul titolo)
+  $('a-card-editori').classList.toggle('hidden', (righeEd.length <= 1 && !!filtroEditori()) || !!an.ean);
   $('a-titolo-editori').textContent = 'Editori' + (quando ? ' · ' + quando : '');
   const cfEd = confrontoAnnoPrima({ righe: editoriPrima && sommaPerGruppo(editoriPrima), date, prima }, e => e.editore);
-  $('a-nota-ed').textContent = cfEd.nota;
+  $('a-nota-ed').textContent = cfEd.nota + notaGfk();
   disegnaClassifica('a-editori', righeEd, {
     confronto: cfEd.confronto, annoPrec: cfEd.annoPrec, chiaveConfronto: e => e.editore,
+    extra: colonneGfk(e => an.gfk?.perEditore.get(e.editore)),
     titolo: 'Editore', nome: e => e.editore, sotto: e => [e.codici ? `cod. ${e.codici}` : '', `${fmtN(e.titoli)} titoli`].filter(Boolean).join(' · '),
     attr: e => `data-editore="${esc(e.editore)}"`, totale: valoreOrdine(tot),
     vuoto: editori ? '<p class="nota">Nessun editore nel periodo con questi filtri.</p>' : TROPPO,
@@ -1145,24 +1173,25 @@ function disegnaTipi(tipi, tipiPrima, date, prima, senza, senzaPrima){
   };
   const o = ordineDi(ID), ordine = TIPI.map((_, i) => i).sort((x, y) => confronta(chiave(x, o.col), chiave(y, o.col), o.dir));
   const nCol = 3 + mis.length * 3;
-  const celleMisura = (a, b) => `<td class="num">${fmtEuro0(a)}</td><td class="num sec-tipi">${tipiPrima && totPrec ? fmtEuro0(b) : '—'}</td><td class="num">${variazione(a, b)}</td>`;
+  const vc = m => m === 'V' ? ' vend' : '';   // colonne del venduto con lo sfondo colorato
+  const celleMisura = (a, b, m) => `<td class="num${vc(m)}">${fmtEuro0(a)}</td><td class="num sec-tipi${vc(m)}">${tipiPrima && totPrec ? fmtEuro0(b) : '—'}</td><td class="num${vc(m)}">${variazione(a, b)}</td>`;
   $('a-tipi').innerHTML = '<div class="compo">'
     + barraComposizione(ora, totOra, annoOra, estremi(date), totPrec ? variazione(totOra, totPrec) : '')
     + barraComposizione(prec, totPrec, annoPrec, totPrec ? estremi(prima) : tipiPrima ? 'nessun dato' : 'calcolo troppo pesante, riprova', '') + '</div>'
     + `<div class="tbl-wrap" style="max-height:none;"><table>
-      <tr>${th('nome', 'Tipo', 'rowspan="2"', true)}${mis.map(([, nome]) => `<th class="num" colspan="3" style="text-align:center;">${nome}</th>`).join('')}${th('quota', 'Quota', 'rowspan="2"')}<th rowspan="2"></th></tr>
-      <tr>${mis.map(([k]) => th(k, annoOra) + th(k + '_p', annoPrec) + th(k + '_v', 'Var.')).join('')}</tr>
+      <tr>${th('nome', 'Tipo', 'rowspan="2"', true)}${mis.map(([k, nome]) => `<th class="num${vc(k)}" colspan="3" style="text-align:center;">${nome}</th>`).join('')}${th('quota', 'Quota', 'rowspan="2"')}<th rowspan="2"></th></tr>
+      <tr>${mis.map(([k]) => [th(k, annoOra), th(k + '_p', annoPrec), th(k + '_v', 'Var.')].map(h => k === 'V' ? h.replace('class="ord', 'class="vend ord') : h).join('')).join('')}</tr>
       ${ordine.map(i => {
         const [k, nome, c] = TIPI[i], aperto = an.tipiAperti.has(k);
         return `<tr data-i="${i}"><td><i style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${c};margin-right:8px;"></i>${nome}</td>
-        ${mis.map(([m]) => celleMisura(valMisura(riga(tipi, k), m, t), valMisura(riga(tipiPrima, k), m, t))).join('')}
+        ${mis.map(([m]) => celleMisura(valMisura(riga(tipi, k), m, t), valMisura(riga(tipiPrima, k), m, t), m)).join('')}
         <td class="num">${quota(ora[i], totOra)}</td>
         <td class="num"><button type="button" class="piu" data-tipo="${k}" aria-expanded="${aperto}" title="${aperto ? 'Chiudi' : 'Titoli e copie'}">${aperto ? '−' : '+'}</button></td></tr>`
         + (aperto ? rigaTitoliCopie(k, tipi, nCol) + (k === 'novita' ? rigaSenza(sz, szp, mis, t, ora[i], totPrec, quota) : '') : '');
       }).join('')}
       <tr><td><b>Totale</b></td>${mis.map(([m]) => {
         const a = TIPI.reduce((x, [k]) => x + valMisura(riga(tipi, k), m, t), 0), b = TIPI.reduce((x, [k]) => x + valMisura(riga(tipiPrima, k), m, t), 0);
-        return `<td class="num"><b>${fmtEuro0(a)}</b></td><td class="num"><b>${tipiPrima && totPrec ? fmtEuro0(b) : '—'}</b></td><td class="num">${variazione(a, b)}</td>`;
+        return `<td class="num${vc(m)}"><b>${fmtEuro0(a)}</b></td><td class="num${vc(m)}"><b>${tipiPrima && totPrec ? fmtEuro0(b) : '—'}</b></td><td class="num${vc(m)}">${variazione(a, b)}</td>`;
       }).join('')}<td></td><td></td></tr>
     </table></div><div class="tooltip hidden"></div>`;
   // Passando sopra un pezzo di barra (o una riga della tabella): evidenzia il tipo in entrambe le barre e nella tabella,
@@ -1260,7 +1289,8 @@ function rigaSenza(sz, szp, mis, t, novita, totPrec, quota){
     <td><div style="padding-left:18px;">↳ di cui senza lancio</div><div class="st" style="padding-left:18px;">${dett(sz)}</div></td>
     ${mis.map(([m]) => {
       const a = sz ? valMisura(sz, m, t) : null, b = szp ? valMisura(szp, m, t) : null;
-      return `<td class="num">${a == null ? '—' : fmtEuro0(a)}</td><td class="num">${b == null || !totPrec ? '—' : fmtEuro0(b)}</td><td class="num">${a != null && b != null ? variazione(a, b) : ''}</td>`;
+      const vc = m === 'V' ? ' vend' : '';
+      return `<td class="num${vc}">${a == null ? '—' : fmtEuro0(a)}</td><td class="num${vc}">${b == null || !totPrec ? '—' : fmtEuro0(b)}</td><td class="num${vc}">${a != null && b != null ? variazione(a, b) : ''}</td>`;
     }).join('')}
     <td class="num">${sz ? quota(Math.max(0, valMisura(sz, mis[0][0], t)), novita) : '—'}</td><td></td></tr>`;
 }
@@ -1308,6 +1338,14 @@ function disegnaClienti(righe, tot, prec){
   $('a-nota-ytd').textContent = nota;
   disegnaClassifica('a-clienti', ordinate, {
     titolo: nome, nome: r => r.nome, soloImporti: true, confronto, annoPrec, chiaveConfronto: r => r.chiave,
+    // Sconto medio applicato al cliente: 1 − netto / lordo; sotto, la differenza in punti con l'anno prima
+    extra: [{ col: 'sconto', titolo: 'Sconto medio', cls: 'sec', th: `Sconto medio ${movScelto() === 'R' ? 'sul reso' : 'sul fornito'}: 1 − netto / prezzo di copertina`,
+      val: r => scontoMedio(r), html: r => {
+        const s = scontoMedio(r), p = confronto?.get(r.chiave), sp = p ? scontoMedio(p) : null;
+        if (s == null || sp == null) return fmtSconto(s);
+        const d = (s - sp) * 100;
+        return fmtSconto(s) + `<div class="dv ${Math.abs(d) < .05 ? '' : d < 0 ? 'su' : 'giu'}" title="${esc(annoPrec)}: ${fmtSconto(sp)}">${d >= 0 ? '+' : ''}${d.toLocaleString('it-IT', { maximumFractionDigits: 1 })} pt</div>`;
+      } }],
     sotto: r => [an.livello === 'cliente' ? '' : `${fmtN(r.clienti)} clienti`, r.dettaglio].filter(Boolean).join(' · '),
     attr: r => `data-chiave="${esc(r.chiave)}"`, totale: valoreOrdine(tot),
     vuoto: '<p class="nota">Nessun cliente nel periodo con questi filtri.</p>',
@@ -1384,22 +1422,69 @@ function descrizioneSelezione(){
   return g === 'mese' ? nomeMese(s[0].slice(0, 7)) : g === 'settimana' ? `settimana dal ${fmtGiorno(s[0])}` : fmtGiorno(s[0]);
 }
 
+/* GfK (docs/sql/2026-11-13-gfk.sql): l'ultima settimana che QDM ha importato, per EAN (i primi 10.000 titoli del
+   mercato), con la settimana (CWnn) e il progressivo dell'anno (CW01–CWnn). Sell-out a prezzo di copertina.
+   Le settimane GfK sono le ISO, dal lunedì alla domenica. Si carica una volta sola: non dipende dai filtri. */
+const lunediCW = (anno, cw) => { const g4 = new Date(Date.UTC(anno, 0, 4)); const lun1 = g4.getTime() - ((g4.getUTCDay() + 6) % 7) * 864e5;
+  return new Date(lun1 + (cw - 1) * 7 * 864e5).toISOString().slice(0, 10); };
+function caricaGfk(){
+  if (!an.gfkPromessa) an.gfkPromessa = rpcDb('msg_gfk', {}).then(righe => {
+    const g = { perEan: new Map(), perEditore: new Map(), anno: null, cwDa: 1, cwA: null };
+    (righe || []).forEach(r => {
+      const x = { vw: Number(r.valore_week), uw: Number(r.copie_week), vp: Number(r.valore_prog), up: Number(r.copie_prog) };
+      g.perEan.set(r.ean, x);
+      const e = g.perEditore.get(r.editore) || { vw: 0, uw: 0, vp: 0, up: 0, titoli: 0 };
+      Object.keys(x).forEach(k => e[k] += x[k]); e.titoli++;
+      g.perEditore.set(r.editore, e);
+      g.anno = r.anno; g.cwDa = r.cw_da; g.cwA = r.cw_a;
+    });
+    return an.gfk = g.cwA ? g : null;
+  }).catch(e => { console.warn('GfK:', e); return an.gfk = null; });
+  return an.gfkPromessa;
+}
+const due2 = n => String(n).padStart(2, '0');
+// Colonne GfK di una classifica (titoli o editori): settimana e progressivo, valore sopra e copie sotto
+function colonneGfk(dato){
+  const g = an.gfk; if (!g) return [];
+  const finWeek = piuGiorni(lunediCW(g.anno, g.cwA), 6), inizio = lunediCW(g.anno, g.cwDa), lunW = lunediCW(g.anno, g.cwA);
+  const cella = (v, u) => v == null ? '<span class="muto">—</span>' : `${fmtEuro0(v)}<div class="st">${fmtN(u)} copie</div>`;
+  return [
+    { col: 'gfk_w', titolo: `GfK CW${due2(g.cwA)}`, cls: 'gfk', th: `GfK settimana ${g.cwA}/${g.anno}: dal ${fmtGiorno(lunW)} al ${fmtGiorno(finWeek)}. Sell-out a prezzo di copertina`,
+      val: r => dato(r)?.vw ?? null, html: r => { const x = dato(r); return cella(x?.vw, x?.uw); } },
+    { col: 'gfk_p', titolo: `GfK CW${due2(g.cwDa)}–${due2(g.cwA)}`, cls: 'gfk', th: `GfK progressivo ${g.anno}, settimane ${g.cwDa}–${g.cwA}: dal ${fmtGiorno(inizio)} al ${fmtGiorno(finWeek)}`,
+      val: r => dato(r)?.vp ?? null, html: r => { const x = dato(r); return cella(x?.vp, x?.up); } },
+  ];
+}
+function notaGfk(){
+  const g = an.gfk; if (!g) return an.gfkPromessa ? ' GfK: dati non disponibili.' : '';
+  const finWeek = piuGiorni(lunediCW(g.anno, g.cwA), 6);
+  return ` GfK (sell-out a prezzo di copertina, fisso sull'ultima settimana importata in QDM, non segue il periodo): CW${due2(g.cwA)} = ${fmtGiorno(lunediCW(g.anno, g.cwA))} – ${fmtGiorno(finWeek)}; `
+    + `CW${due2(g.cwDa)}–${due2(g.cwA)} = ${fmtGiorno(lunediCW(g.anno, g.cwDa))} – ${fmtGiorno(finWeek)}. Solo i titoli nei primi 10.000 del mercato.`;
+}
+
 async function caricaTitoli(){
   const n = an.richiesta;
   let titoli;
   if (an.senzaYba3) return mostraSenzaYba3();
   const nomeEd = descrizioneEditori(), quando = descrizioneSelezione();
   $('a-titolo-titoli').textContent = 'Titoli' + (nomeEd ? ' · ' + nomeEd : '') + (quando ? ' · ' + quando : '');
-  try { titoli = await rpc('msg_analisi_titoli', { p_date: dateDettaglio(), p_editori: filtroEditori(), p_cerca: $('a-cerca').value.trim() || null, p_limite: 300, p_ordine: chiaveOrdine(), p_clienti: filtroClienti(), p_tipi: filtroTipi() }); }
+  // Con un titolo filtrato si vede solo quello
+  const cerca = an.ean || $('a-cerca').value.trim() || null;
+  try { [titoli] = await Promise.all([
+    rpc('msg_analisi_titoli', { p_date: dateDettaglio(), p_editori: filtroEditori(), p_cerca: cerca, p_limite: 300, p_ordine: chiaveOrdine(), p_clienti: filtroClienti(), p_tipi: filtroTipi() }),
+    caricaGfk()]);
+    if (an.ean) titoli = titoli.filter(t => t.ean === an.ean);
+  }
   catch (e) { if (n === an.richiesta) $('a-titoli').innerHTML = TROPPO; return; }
   if (n !== an.richiesta) return;
-  $('a-sub-titoli').textContent = `I primi 300 per ${etiPrincipale().toLowerCase()}. Clic su un titolo per vederne l'andamento.`;
+  $('a-sub-titoli').textContent = (an.ean ? 'Solo il titolo filtrato (✕ sull\'etichetta in alto per toglierlo).' : `I primi 300 per ${etiPrincipale().toLowerCase()}. Clic su un titolo per vederne l'andamento.`) + notaGfk();
   disegnaTitoli(titoli, an.tot ? valoreOrdine(an.tot) : 0, '<p class="nota">Nessun titolo nel periodo con questi filtri.</p>');
 }
 function disegnaTitoli(righe, totale, vuoto){
   disegnaClassifica('a-titoli', righe, {
     titolo: 'Titolo', nome: t => t.titolo, sotto: t => [t.ean, t.editore, t.collana, fmtEuro(t.prezzo)].filter(Boolean).join(' · '),
     attr: t => `data-ean="${esc(t.ean)}" data-titolo="${esc(t.titolo)}"`, totale, vuoto,
+    extra: colonneGfk(t => an.gfk?.perEan.get(t.ean)),
     clic: tr => { an.ean = tr.dataset.ean; an.titoloEan = tr.dataset.titolo; aggiornaAnalisi(); window.scrollTo({ top: 0, behavior: 'smooth' }); },
   });
 }
@@ -1425,8 +1510,11 @@ function disegnaClassifica(id, righe, op){
   const box = $(id);
   if (!righe.length) { box.innerHTML = op.vuoto || ''; if (op.cerca) collegaCerca(op.cerca[0], id, op.cerca[1], op.cerca[2]); return; }
   const princ = etiPrincipale(), scelti = v => !op.soloImporti || v.e != null;
-  const colonne = valori(righe[0]).filter(scelti).map(v => v.l), conVar = op.confronto !== undefined;
-  if (![...colonne, ...(conVar ? colonne.map(l => l + '|var') : []), 'nome', 'quota'].includes(ordineDi(id).col)) delete an.ordine[id];
+  const vr0 = valori(righe[0]).filter(scelti), colonne = vr0.map(v => v.l), conVar = op.confronto !== undefined;
+  const vend = new Set(vr0.filter(v => v.vend).map(v => v.l));
+  // Colonne in più dopo i valori: { col, titolo, val(r) per ordinare, html(r), cls, th (title dell'intestazione) }
+  const extra = op.extra || [];
+  if (![...colonne, ...(conVar ? colonne.map(l => l + '|var') : []), ...extra.map(c => c.col), 'nome', 'quota'].includes(ordineDi(id).col)) delete an.ordine[id];
   const den = op.totale > 0 ? op.totale : righe.reduce((a, r) => a + Math.max(0, valoreOrdine(r)), 0);
   const max = Math.max(1e-9, ...righe.map(r => valoreOrdine(r)));
   const cella = v => v ? (v.e != null ? fmtEuro(v.e) : v.n) : '';
@@ -1444,20 +1532,22 @@ function disegnaClassifica(id, righe, op){
     return `<div class="dv ${bene ? 'su' : 'giu'}" ${tit}>${p >= 0 ? '▲ +' : '▼ '}${p.toLocaleString('it-IT', { maximumFractionDigits: 1 })}%</div>`;
   };
   const o = ordineDi(id);
-  const chiave = r => o.col === 'nome' ? (op.nome(r) || '') : o.col === 'quota' ? valoreOrdine(r)
+  const ex = extra.find(c => c.col === o.col);
+  const chiave = r => o.col === 'nome' ? (op.nome(r) || '') : o.col === 'quota' ? valoreOrdine(r) : ex ? (ex.val(r) ?? -Infinity)
     : o.col.endsWith('|var') ? (varia(r, o.col.slice(0, -4)) ?? -Infinity) : num(r, o.col);
   const ordinate = righe.map(r => [chiave(r), r]).sort((a, b) => confronta(a[0], b[0], o.dir)).map(x => x[1]);
-  const th = (col, testo, num = true) => `<th class="ord${num ? ' num' : ''}" data-col="${esc(col)}"${num ? '' : ' data-alfa="1"'}>${esc(testo)}${frecciaOrd(id, col)}`
-    + (num && conVar && col !== 'quota' && col !== 'Resa' ? `<div class="th-var" data-col="${esc(col)}|var" title="Ordina per variazione sull'anno prima">var. %${frecciaOrd(id, col + '|var')}</div>` : '') + '</th>';
+  const th = (col, testo, num = true, cls = '', tit = '', senzaVar = false) => `<th class="ord${num ? ' num' : ''}${cls ? ' ' + cls : ''}" data-col="${esc(col)}"${num ? '' : ' data-alfa="1"'}${tit ? ` title="${esc(tit)}"` : ''}>${esc(testo)}${frecciaOrd(id, col)}`
+    + (num && conVar && !senzaVar && col !== 'quota' && col !== 'Resa' ? `<div class="th-var" data-col="${esc(col)}|var" title="Ordina per variazione sull'anno prima">var. %${frecciaOrd(id, col + '|var')}</div>` : '') + '</th>';
   box.innerHTML = `<div class="tbl-wrap" style="max-height:520px;"><table class="classifica">
-    <tr><th></th>${th('nome', op.titolo, false)}${colonne.map(l => th(l, l)).join('')}${th('quota', 'Quota')}</tr>
+    <tr><th></th>${th('nome', op.titolo, false)}${colonne.map(l => th(l, l, true, vend.has(l) ? 'vend' : '')).join('')}${extra.map(c => th(c.col, c.titolo, true, c.cls || '', c.th || '', true)).join('')}${th('quota', 'Quota')}</tr>
     ${ordinate.map((r, i) => {
       const n = op.nome(r) || '—', st = op.sotto(r) || '', vs = valori(r), x = valoreOrdine(r);
       const q = den ? Math.max(0, x) / den * 100 : 0;
       return `<tr class="cliccabile" ${op.attr(r)} data-cerca="${esc((n + ' ' + st).toLowerCase())}">
         <td class="rk">${i + 1}</td>
         <td><div class="nm">${esc(n)}</div>${st ? `<div class="st">${esc(st)}</div>` : ''}</td>
-        ${colonne.map(l => `<td class="num ${l === princ ? 'princ' : 'sec'}">${cella(vs.find(v => v.l === l))}${conVar ? sottoValore(r, l) : ''}</td>`).join('')}
+        ${colonne.map(l => `<td class="num ${l === princ ? 'princ' : 'sec'}${vend.has(l) ? ' vend' : ''}">${cella(vs.find(v => v.l === l))}${conVar ? sottoValore(r, l) : ''}</td>`).join('')}
+        ${extra.map(c => `<td class="num ${c.cls || ''}">${c.html(r)}</td>`).join('')}
         <td class="qt"><div class="qt-b"><span><i style="width:${Math.max(0, x) / max * 100}%"></i></span>${q.toLocaleString('it-IT', { maximumFractionDigits: q < 10 ? 1 : 0 })}%</div></td></tr>`;
     }).join('')}
   </table></div>${op.piede || ''}`;
@@ -1491,11 +1581,13 @@ function disegnaGrafico(dati){
   box.innerHTML = '';
   if (!dati.length) { box.innerHTML = '<p class="nota" style="padding:20px 0;">Nessun movimento nel periodo.</p>'; return; }
   const W = box.clientWidth || 600, H = box.clientHeight || 280;
-  const m = { s: 56, d: 8, a: 10, b: 26 };
+  const m = { s: 76, d: 8, a: 10, b: 26 };
   const w = W - m.s - m.d, h = H - m.a - m.b;
   const mov = movScelto(), conF = mov !== 'R', conR = mov !== 'F';
   const prec = an.seriePrima || new Map(), pr = d => prec.get(d.periodo);
-  const alto = x => Math.max(conF ? Number(x.copie_f) : 0, conR ? Number(x.copie_r) : 0);
+  // Barre in valore (il primo importo scelto: lordo o netto); le copie nel riquadro al passaggio del mouse
+  const imp = importiScelti()[0], kF = imp + '_f', kR = imp + '_r';
+  const alto = x => Math.max(conF ? Number(x[kF]) : 0, conR ? Number(x[kR]) : 0);
   const max = Math.max(1, ...dati.map(x => Math.max(alto(x), pr(x) ? alto(pr(x)) : 0)));
   const passo = Math.pow(10, Math.floor(Math.log10(max)));
   const tacca = [1, 2, 2.5, 5, 10].map(k => k * passo).find(t => max / t <= 5) || passo * 10;
@@ -1508,11 +1600,11 @@ function disegnaGrafico(dati){
   const svg = document.createElementNS(ns, 'svg');
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
   svg.setAttribute('role', 'img');
-  svg.setAttribute('aria-label', 'Copie fornite e rese per periodo');
+  svg.setAttribute('aria-label', 'Fornito e reso in valore per periodo');
   let html = '';
   for (let v = 0; v <= top + 1e-9; v += tacca) {
     html += `<line x1="${m.s}" x2="${W - m.d}" y1="${y(v)}" y2="${y(v)}" stroke="var(--griglia)" />`
-      + `<text class="asse" x="${m.s - 8}" y="${y(v) + 4}" text-anchor="end">${fmtN(v)}</text>`;
+      + `<text class="asse" x="${m.s - 8}" y="${y(v) + 4}" text-anchor="end">${fmtAsseEuro(v)}</text>`;
   }
   const barra = (x, v, colore, l = larg, extra = '') => {
     const yy = y(v), alt = m.a + h - yy;
@@ -1521,8 +1613,8 @@ function disegnaGrafico(dati){
     return `<path fill="${colore}" ${extra} d="M${x},${m.a + h} V${yy + r} Q${x},${yy} ${x + r},${yy} H${x + l - r} Q${x + l},${yy} ${x + l},${yy + r} V${m.a + h} Z" />`;
   };
   // Serie mostrate: [campo, colore, x della barra rispetto al centro del periodo]
-  const serie = due ? [['copie_f', 'var(--serie-1)', -larg - 1], ['copie_r', 'var(--serie-2)', 1]]
-    : [[conF ? 'copie_f' : 'copie_r', conF ? 'var(--serie-1)' : 'var(--serie-2)', -larg / 2]];
+  const serie = due ? [[kF, 'var(--serie-1)', -larg - 1], [kR, 'var(--serie-2)', 1]]
+    : [[conF ? kF : kR, conF ? 'var(--serie-1)' : 'var(--serie-2)', -larg / 2]];
   const ogni = Math.max(1, Math.ceil(dati.length / Math.floor(w / 64)));
   const linee = serie.map(() => []);
   dati.forEach((d, i) => {
@@ -1554,22 +1646,22 @@ function disegnaGrafico(dati){
         : grana === 'settimana' ? `settimana dal ${fmtGiorno(d.periodo)}` : fmtGiorno(d.periodo);
       tip.replaceChildren();
       const t = document.createElement('div'); t.textContent = etich; t.style.marginBottom = '4px'; tip.appendChild(t);
-      [conF && ['Fornite', d.copie_f, 'var(--serie-1)'], conR && ['Rese', d.copie_r, 'var(--serie-2)']].filter(Boolean).forEach(([nome, v, c]) => {
+      // Prima i valori, poi le copie
+      valori(d).filter(v => v.e != null).forEach(v => {
         const riga = document.createElement('div'); riga.className = 'tt-riga';
-        const i = document.createElement('i'); i.style.background = c;
-        const b = document.createElement('b'); b.textContent = fmtN(v);
-        riga.append(i, b, document.createTextNode(' ' + nome.toLowerCase()));
-        tip.appendChild(riga);
+        const c = v.vend ? '' : /reso/i.test(v.l) ? 'var(--serie-2)' : 'var(--serie-1)';
+        if (c) { const i = document.createElement('i'); i.style.background = c; riga.appendChild(i); }
+        const b = document.createElement('b'); b.textContent = fmtEuro(v.e);
+        riga.append(b, document.createTextNode(' ' + v.l.toLowerCase())); tip.appendChild(riga);
       });
-      valori(d).filter(v => v.e != null).forEach((v, k) => {
-        const nt = document.createElement('div'); if (!k) nt.style.marginTop = '4px';
-        nt.textContent = `${v.l} ${fmtEuro(v.e)}`; tip.appendChild(nt);
-      });
+      const cp = document.createElement('div'); cp.className = 'muto'; cp.style.marginTop = '4px';
+      cp.textContent = [conF && `${fmtN(d.copie_f)} copie fornite`, conR && `${fmtN(d.copie_r)} copie rese`].filter(Boolean).join(' · ');
+      tip.appendChild(cp);
       const p = pr(d);
       if (p) {
         const ap = document.createElement('div'); ap.className = 'tt-prec';
         ap.innerHTML = `<div class="muto">Anno prec.${grana === 'giorno' ? ' (' + fmtGiorno(annoPrima(d.periodo)) + ')' : ''}</div>`
-          + serie.map(([k, c]) => `<div class="tt-riga"><i style="background:${c};opacity:.4"></i><b>${fmtN(p[k])}</b> ${k === 'copie_f' ? 'fornite' : 'rese'} ${variazione(Number(d[k]), Number(p[k]))}</div>`).join('');
+          + serie.map(([k, c]) => `<div class="tt-riga"><i style="background:${c};opacity:.4"></i><b>${fmtEuro0(p[k])}</b> ${k === kF ? 'fornito' : 'reso'} ${variazione(Number(d[k]), Number(p[k]))}</div>`).join('');
         tip.appendChild(ap);
       }
       tip.classList.remove('hidden');
@@ -1608,6 +1700,8 @@ let sftpFile = [];
 let importazioni = new Map();
 const fmtN = n => n == null ? '—' : Number(n).toLocaleString('it-IT');
 const fmtEuro = n => n == null ? '—' : Number(n).toLocaleString('it-IT', { style: 'currency', currency: 'EUR' });
+// Asse del grafico in euro, compatto: 500 €, 12.000 €, 1,2 mln €
+const fmtAsseEuro = v => v >= 1e6 ? (v / 1e6).toLocaleString('it-IT', { maximumFractionDigits: 1 }) + ' mln €' : Number(v).toLocaleString('it-IT', { maximumFractionDigits: 0 }) + ' €';
 
 function esitoSftp(ok, testo){
   $('s-esito').innerHTML = testo ? `<div class="esito ${ok ? 'ok' : 'ko'}">${ok ? '✓' : '✕'} ${esc(testo)}</div>` : '';
