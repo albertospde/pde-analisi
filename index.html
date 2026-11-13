@@ -163,31 +163,14 @@ th.ord:hover{color:var(--text);}
 th.ord .fr{font-size:10px;margin-left:3px;}
 .misure-tipi{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:10px;font-size:13px;}
 .misure-tipi label{display:inline-flex;align-items:center;gap:5px;cursor:pointer;}
-.clienti-corpo{display:flex;flex-wrap:wrap;gap:16px 28px;align-items:flex-start;}
-.clienti-corpo #a-clienti{flex:1 1 520px;min-width:0;}
-.torta-canali{flex:0 0 auto;margin:0 auto;width:260px;}
-.torta-canali svg{width:260px;height:240px;overflow:visible;display:block;}
-.torta-canali path,.torta-canali circle{cursor:pointer;stroke:var(--card);stroke-width:2;}
-.torta-canali text{font-size:12px;font-weight:600;fill:var(--text);font-variant-numeric:tabular-nums;}
-/* Ciambella: entrata a ventaglio, fetta evidenziata che si stacca, le altre attenuate */
-.torta-canali .fette{transform-origin:130px 120px;animation:torta-in .7s cubic-bezier(.2,.8,.2,1) backwards;}
-.torta-canali .fetta{transition:transform .25s cubic-bezier(.2,.8,.2,1),opacity .2s,filter .2s;animation:fetta-in .45s ease-out backwards;outline:none;}
-.torta-canali .eti{transition:opacity .2s;}
-.torta-canali.attiva .fetta,.torta-canali.attiva .eti{opacity:.3;}
-.torta-canali.attiva .fetta.on,.torta-canali.attiva .eti.on{opacity:1;}
-.torta-canali .fetta.on{transform:translate(var(--dx),var(--dy)) scale(1.04);transform-origin:130px 120px;filter:drop-shadow(0 3px 6px rgba(0,0,0,.18));}
-.torta-canali .centro-n{font-size:12px;font-weight:600;fill:var(--muted);}
-.torta-canali .centro-v{font-size:16px;font-weight:700;fill:var(--text);}
-.torta-canali .centro-q{font-size:11px;font-weight:600;fill:var(--muted);}
-.torta-leg button.on{background:var(--card-2);}
-@keyframes torta-in{from{transform:rotate(-100deg) scale(.7);opacity:.35;}}
-@keyframes fetta-in{from{opacity:.35;}}
-@media (prefers-reduced-motion:reduce){.torta-canali .fette,.torta-canali .fetta{animation:none;}.torta-canali .fetta{transition:opacity .2s;}}
-.torta-leg{display:grid;gap:4px;margin-top:6px;font-size:12px;}
-.torta-leg button{display:grid;grid-template-columns:12px 1fr auto;gap:8px;align-items:center;background:none;border:0;color:var(--text);font:inherit;padding:2px 4px;border-radius:4px;cursor:pointer;text-align:left;}
-.torta-leg button:hover{background:var(--card-2);}
-.torta-leg i{width:10px;height:10px;border-radius:2px;}
-.torta-leg span:last-child{color:var(--muted);font-variant-numeric:tabular-nums;}
+/* Clienti per canale: barre orizzontali dei canali (come Lanci e rifornimenti) sopra la tabella a tutta larghezza */
+.torta-canali{position:relative;margin-bottom:14px;}
+.canali-leg{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:var(--muted);margin-bottom:8px;}
+.canali-leg span{display:inline-flex;align-items:center;gap:6px;}
+.canali-leg i{width:10px;height:10px;border-radius:2px;}
+.compo .seg{animation:seg-in .5s cubic-bezier(.2,.8,.2,1) backwards;}
+@keyframes seg-in{from{opacity:.35;}}
+@media (prefers-reduced-motion:reduce){.compo .seg{animation:none;}}
 .torte tr[data-i]{cursor:default;transition:opacity .15s;}
 .torte table.evid tr[data-i]:not(.on){opacity:.4;}
 /* Barre di composizione (Lanci e rifornimenti): una per anno, a tutta larghezza */
@@ -218,6 +201,18 @@ th.ord .fr{font-size:10px;margin-left:3px;}
 #a-livello label{padding:4px 10px;font-size:12px;}
 .f-piede{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:flex-end;margin-top:12px;}
 .f-piede .err{margin-right:auto;min-height:0;}
+/* Indicatori: a sinistra valori e copie (una colonna per movimento), a destra separati da un filo sconto e resa */
+#a-kpi{display:grid;grid-template-columns:minmax(0,3fr) minmax(220px,1fr);gap:12px;margin-bottom:16px;}
+.kpi-principali{display:grid;grid-template-columns:repeat(var(--col,3),minmax(0,1fr));gap:12px;}
+.kpi-lato{display:grid;gap:12px;align-content:start;border-left:2px solid var(--border);padding-left:12px;}
+.kpi-lato .kpi{background:var(--lato-bg);border-color:var(--lato-bordo);}
+:root{ --lato-bg:#33261a; --lato-bordo:#6b4a2a; }
+html[data-theme="light"]{ --lato-bg:#fff3e6; --lato-bordo:#f4d3ad; }
+@media (max-width:900px){
+  #a-kpi{grid-template-columns:1fr;}
+  .kpi-principali{grid-template-columns:repeat(auto-fit,minmax(220px,1fr));}
+  .kpi-lato{border-left:0;padding-left:0;border-top:2px solid var(--border);padding-top:12px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));}
+}
 .kpi-riga{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px;margin-bottom:16px;}
 .kpi{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 16px;}
 .kpi-l{font-size:12px;color:var(--muted);}
@@ -259,10 +254,12 @@ button.piu:hover,button.piu[aria-expanded="true"]{background:var(--card-2);}
 .classifica .nm{font-weight:600;line-height:1.25;}
 .classifica .st{font-size:11px;color:var(--muted);margin-top:2px;font-weight:400;}
 .classifica td.princ{font-weight:700;white-space:nowrap;}
-.classifica td.qt{width:130px;min-width:110px;}
-.classifica .qt-b{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;}
-.classifica .qt-b span{flex:1;height:6px;border-radius:3px;background:var(--griglia);overflow:hidden;}
-.classifica .qt-b span i{display:block;height:100%;border-radius:3px;background:var(--serie-1);}
+.classifica td.qt{width:1%;text-align:right;white-space:nowrap;}
+/* Quota: pastiglia dal verde chiaro (peso piccolo) al verde scuro (peso maggiore) */
+:root{ --q-chiaro:#e3f6ea; --q-scuro:#11663a; }
+.quota{display:inline-block;min-width:54px;padding:4px 9px;border-radius:999px;text-align:center;font-size:12px;font-weight:700;
+  font-variant-numeric:tabular-nums;background:color-mix(in srgb,var(--q-scuro) var(--q),var(--q-chiaro));color:#0d3d24;}
+.quota.scura{color:#fff;}
 .classifica td.sec{color:var(--muted);white-space:nowrap;}
 /* Venduto: colonne e indicatore con lo sfondo colorato (colori pieni: le intestazioni restano ferme scorrendo) */
 :root{ --vend-bg:#123642; --vend-bordo:#1f5a52; }
@@ -1070,6 +1067,12 @@ const varFreccia = (a, b, reso = false) => {
   const p = (a / b - 1) * 100, bene = reso ? p <= 0 : p >= 0;
   return `<span class="vf ${bene ? 'su' : 'giu'}">${p >= 0 ? '▲ +' : '▼ '}${p.toLocaleString('it-IT', { maximumFractionDigits: 1 })}%</span>`;
 };
+// Quota in evidenza: pastiglia colorata dal verde chiaro (peso piccolo) al verde scuro (la quota più alta della tabella)
+const pillolaQuota = (q, max) => {
+  if (q == null || !isFinite(q)) return '—';
+  const t = max > 0 ? Math.max(0, Math.min(1, q / max)) : 0;
+  return `<span class="quota${t > .5 ? ' scura' : ''}" style="--q:${Math.round(8 + t * 92)}%">${q.toLocaleString('it-IT', { maximumFractionDigits: q < 10 ? 1 : 0 })}%</span>`;
+};
 // Variazione in punti di due quote (resa, sconto): qui un calo è verde
 const varPunti = (a, b) => {
   if (a == null || b == null) return '';
@@ -1095,7 +1098,7 @@ async function aggiornaDettaglio(n = ++an.richiesta){
   const filtri = { ...filtriT, p_tipi: filtroTipi() };
   // Una richiesta troppo pesante (oltre 8 secondi) non ferma le altre: il suo riquadro lo dice
   const prova = r => r.catch(e => { console.warn(e); return null; });
-  const [editori, andaPrima, tipi, tipiPrima, clienti, senza, senzaPrima, canali, clientiPrima, editoriPrima] = await Promise.all([
+  const [editori, andaPrima, tipi, tipiPrima, clienti, senza, senzaPrima, canali, clientiPrima, editoriPrima, , canaliPrima] = await Promise.all([
     prova(rpc('msg_analisi_editori', { p_date: date, p_clienti: filtri.p_clienti, p_tipi: filtri.p_tipi })),
     prova(rpc('msg_analisi_andamento', { p_date: prima, ...filtri, p_grana: 'mese' })),
     prova(rpc('msg_analisi_tipi', { p_date: date, ...filtriT })),
@@ -1109,6 +1112,8 @@ async function aggiornaDettaglio(n = ++an.richiesta){
     // Editori nello stesso periodo dell'anno prima, con gli stessi clienti
     prova(rpc('msg_analisi_editori', { p_date: prima, p_clienti: filtri.p_clienti, p_tipi: filtri.p_tipi })),
     caricaGfk(),
+    // Canali dell'anno prima per la loro barra (al livello canale sono già i clienti dell'anno prima)
+    an.livello === 'canale' ? null : prova(rpc('msg_analisi_clienti', { p_date: prima, p_livello: 'canale', ...filtri })),
   ]);
   if (n !== an.richiesta) return;
   an.senzaRighe = senza;
@@ -1124,19 +1129,20 @@ async function aggiornaDettaglio(n = ++an.richiesta){
       <div class="kpi-r1"><span class="kpi-anno">${esc(annoK)}</span><span class="kpi-n">${ora}</span></div>
       <div class="kpi-r2"><span class="kpi-anno">${esc(annoKp)}</span><span>${!andaPrima ? 'non calcolato' : !conPrima ? 'nessun dato' : prima}</span></div>
     </div><div class="kpi-var">${conPrima ? varHtml : ''}</div></div>${sotto ? `<div class="kpi-s">${sotto}</div>` : ''}</div>`;
-  $('a-kpi').innerHTML = valori(tot).map((v, i) => {
+  // A sinistra valori (fornito, reso, venduto) e sotto le copie, una colonna per movimento; a destra, separati,
+  // sconto medio clienti e resa
+  const cardi = valori(tot).map((v, i) => {
     const p = vp[i], a = v.e ?? v.x, b = p.e ?? p.x;
-    return kpi({ l: v.k || v.l, vend: v.vend, sotto: v.s, ora: v.e != null ? fmtEuro0(v.e) : v.n, prima: p.e != null ? fmtEuro0(p.e) : p.n,
-      varHtml: v.l === 'Resa' ? varPunti(a, b) : varFreccia(a, b, /reso|rese/i.test(v.l)) });
-  }).join('')
-    // Sconto medio ai clienti (netto su lordo); la variazione è in punti
-    + (() => {
-      const s = scontoMedio(tot), sp = conPrima ? scontoMedio(totPrima) : null;
-      return kpi({ l: 'Sconto medio clienti', ora: fmtSconto(s), prima: fmtSconto(sp), varHtml: varPunti(s, sp),
-        sotto: `${movScelto() === 'R' ? 'sul reso' : 'sul fornito'}: netto su prezzo di copertina` });
-    })();
+    return [v.l, kpi({ l: v.k || v.l, vend: v.vend, sotto: v.s, ora: v.e != null ? fmtEuro0(v.e) : v.n, prima: p.e != null ? fmtEuro0(p.e) : p.n,
+      varHtml: v.l === 'Resa' ? varPunti(a, b) : varFreccia(a, b, /reso|rese/i.test(v.l)) })];
+  });
+  const s = scontoMedio(tot), sp = conPrima ? scontoMedio(totPrima) : null;
+  const sconto = kpi({ l: 'Sconto medio clienti', ora: fmtSconto(s), prima: fmtSconto(sp), varHtml: varPunti(s, sp),
+    sotto: `${movScelto() === 'R' ? 'sul reso' : 'sul fornito'}: netto su prezzo di copertina` });
+  $('a-kpi').innerHTML = `<div class="kpi-principali" style="--col:${movScelto() === 'FR' ? 3 : 1}">${cardi.filter(([l]) => l !== 'Resa').map(c => c[1]).join('')}</div>
+    <div class="kpi-lato">${sconto}${cardi.filter(([l]) => l === 'Resa').map(c => c[1]).join('')}</div>`;
   if (tipi) disegnaTipi(tipi, tipiPrima, date, prima, senza, senzaPrima); else $('a-tipi').innerHTML = TROPPO;
-  disegnaTortaCanali(an.livello === 'canale' ? clienti : canali);
+  disegnaTortaCanali(an.livello === 'canale' ? clienti : canali, an.livello === 'canale' ? clientiPrima : canaliPrima, date, prima);
   if (clienti) disegnaClienti(clienti, tot, { righe: clientiPrima, date, prima }); else $('a-clienti').innerHTML = TROPPO;
   an.elenco = sommaPerGruppo(editori || []);
   const quando = descrizioneSelezione();
@@ -1236,7 +1242,7 @@ function disegnaTipi(tipi, tipiPrima, date, prima, senza, senzaPrima){
         return `<tr data-i="${i}"><td><i style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${c};margin-right:8px;"></i>${nome}</td>
         ${cellaAnni(anniTab)}
         ${mis.map(([m]) => celleMisura(valMisura(riga(tipi, k), m, t), valMisura(riga(tipiPrima, k), m, t), m)).join('')}
-        <td class="num">${quota(ora[i], totOra)}</td>
+        <td class="num">${totOra ? pillolaQuota(ora[i] / totOra * 100, Math.max(...ora) / totOra * 100) : '—'}</td>
         <td class="num"><button type="button" class="piu" data-tipo="${k}" aria-expanded="${aperto}" title="${aperto ? 'Chiudi' : 'Titoli e copie'}">${aperto ? '−' : '+'}</button></td></tr>`
         + (aperto ? rigaTitoliCopie(k, tipi, nCol) + (k === 'novita' ? rigaSenza(sz, szp, mis, t, ora[i], totPrec, quota) : '') : '');
       }).join('')}
@@ -1346,13 +1352,14 @@ function rigaSenza(sz, szp, mis, t, novita, totPrec, quota){
       const a = sz ? valMisura(sz, m, t) : null, b = szp && totPrec ? valMisura(szp, m, t) : null;
       return `<td class="num${m === 'V' ? ' vend' : ''}">${cellaConfronto(a == null ? '—' : fmtEuro0(a), b == null ? '—' : fmtEuro0(b), a != null && b != null ? varFreccia(a, b, m === 'R') : '')}</td>`;
     }).join('')}
-    <td class="num">${sz ? quota(Math.max(0, valMisura(sz, mis[0][0], t)), novita) : '—'}</td><td></td></tr>`;
+    <td class="num">${sz && novita ? pillolaQuota(Math.max(0, valMisura(sz, mis[0][0], t)) / novita * 100, 100) : '—'}</td><td></td></tr>`;
 }
 // Barra di composizione a tutta larghezza: anno e totale a sinistra, un pezzo per tipo lungo quanto la sua quota,
 // con quota e valore scritti dentro quando c'è posto (le due barre una sopra l'altra si confrontano a colpo d'occhio)
-function barraComposizione(valori, tot, titolo, sotto, varTot){
+// voci = [chiave, nome, colore] dei pezzi (di base i tipi; in Clienti per canale i canali)
+function barraComposizione(valori, tot, titolo, sotto, varTot, voci = TIPI){
   const q = v => (v / tot * 100).toLocaleString('it-IT', { maximumFractionDigits: 1 }) + '%';
-  const pezzi = tot > 0 ? TIPI.map(([, nome, c], i) => {
+  const pezzi = tot > 0 ? voci.map(([, nome, c], i) => {
     const v = valori[i], p = v / tot * 100;
     if (v <= 0) return '';
     return `<div class="seg" data-i="${i}" style="flex-grow:${v};background:${c};" aria-label="${esc(nome)}: ${fmtEuro0(v)} (${q(v)})">`
@@ -1360,7 +1367,7 @@ function barraComposizione(valori, tot, titolo, sotto, varTot){
   }).join('') : '<div class="seg-vuoto"></div>';
   return `<div class="compo-riga">
     <div class="compo-anno"><b>${esc(titolo)}</b><span class="compo-tot">${tot > 0 ? fmtEuro0(tot) : '—'} ${varTot}</span><small>${esc(sotto)}</small></div>
-    <div class="compo-barra" role="img" aria-label="${esc(titolo)}: ${TIPI.map(([, nome], i) => `${nome} ${fmtEuro0(valori[i])}`).join(', ')}">${pezzi}</div>
+    <div class="compo-barra" role="img" aria-label="${esc(titolo)}: ${esc(voci.map(([, nome], i) => `${nome} ${fmtEuro0(valori[i])}`).join(', '))}">${pezzi}</div>
   </div>`;
 }
 
@@ -1411,53 +1418,49 @@ function disegnaClienti(righe, tot, prec){
     },
   });
 }
-// Torta dei canali con la quota sul dato principale: colore fisso per canale, clic su una fetta per filtrarla
+// Canali come in Lanci e rifornimenti: una barra orizzontale per anno, un pezzo per canale lungo quanto la sua quota
+// sul dato principale (colore fisso per canale). Passando sopra un canale si evidenzia nelle due barre con il
+// confronto nel riquadro; clic per filtrarlo (e scendere alle categorie)
 const COLORE_CANALE = { ONLINE: 'var(--canale-1)', CATENE: 'var(--canale-2)', INDIE: 'var(--canale-3)', GROSSISTI: 'var(--canale-4)' };
-function disegnaTortaCanali(righe){
+function disegnaTortaCanali(righe, righePrima, date, prima){
   const box = $('a-torta-canali');
   if (!righe) { box.innerHTML = TROPPO; return; }
-  const fette = righe.map(r => ({ nome: r.nome, v: Math.max(0, valoreOrdine(r)) })).filter(f => f.v > 0).sort((x, y) => y.v - x.v);
-  const tot = fette.reduce((a, f) => a + f.v, 0);
-  if (!tot) { box.innerHTML = '<p class="nota">Nessun dato per la torta.</p>'; return; }
-  // Ciambella: passando su una fetta (o sulla sua voce in legenda) la fetta si stacca, le altre si attenuano
-  // e al centro compaiono nome, importo e quota; senza mouse il centro mostra il totale
-  const cx = 130, cy = 120, R = 92, r = 58, q = v => (v / tot * 100).toLocaleString('it-IT', { maximumFractionDigits: 1 }) + '%';
-  const colore = n => COLORE_CANALE[n] || 'var(--muted)', punto = (a, rr) => [cx + rr * Math.sin(a), cy - rr * Math.cos(a)];
-  let a0 = 0, disegno = '', etichette = '';
-  fette.forEach((f, i) => {
-    const am = f.v / tot * 2 * Math.PI, a1 = a0 + am, mezzo = a0 + am / 2, big = am > Math.PI ? 1 : 0;
-    const [x0, y0] = punto(a0, R), [x1, y1] = punto(a1, R), [x2, y2] = punto(a1, r), [x3, y3] = punto(a0, r);
-    const d = fette.length === 1
-      ? `M${cx},${cy - R} A${R},${R} 0 1 1 ${cx - .01},${cy - R} Z M${cx},${cy - r} A${r},${r} 0 1 0 ${cx + .01},${cy - r} Z`
-      : `M${x0},${y0} A${R},${R} 0 ${big} 1 ${x1},${y1} L${x2},${y2} A${r},${r} 0 ${big} 0 ${x3},${y3} Z`;
-    const [dx, dy] = [Math.sin(mezzo) * 8, -Math.cos(mezzo) * 8];
-    disegno += `<path class="fetta" d="${d}" fill="${colore(f.nome)}" fill-rule="evenodd" data-canale="${esc(f.nome)}" data-i="${i}"
-      style="--dx:${dx.toFixed(1)}px;--dy:${dy.toFixed(1)}px;animation-delay:${i * 70}ms"><title>${esc(f.nome)}: ${fmtEuro0(f.v)} (${q(f.v)})</title></path>`;
-    if (f.v / tot >= .03) { const [tx, ty] = punto(mezzo, R + 10); etichette += `<text class="eti" data-i="${i}" x="${tx}" y="${ty + 4}" text-anchor="${Math.sin(mezzo) >= 0 ? 'start' : 'end'}">${q(f.v)}</text>`; }
-    a0 = a1;
-  });
-  box.innerHTML = `<svg viewBox="0 0 260 240" role="img" aria-label="Quota per canale: ${esc(fette.map(f => `${f.nome} ${q(f.v)}`).join(', '))}">
-      <g class="fette">${disegno}</g>${etichette}
-      <text class="centro-n" x="${cx}" y="${cy - 6}" text-anchor="middle"></text>
-      <text class="centro-v" x="${cx}" y="${cy + 13}" text-anchor="middle"></text>
-      <text class="centro-q" x="${cx}" y="${cy + 29}" text-anchor="middle"></text></svg>
-    <div class="torta-leg">${fette.map((f, i) => `<button type="button" data-canale="${esc(f.nome)}" data-i="${i}"><i style="background:${colore(f.nome)}"></i><span>${esc(f.nome)}</span><span>${q(f.v)}</span></button>`).join('')}</div>`;
-  const centro = f => {
-    box.querySelector('.centro-n').textContent = f ? f.nome : 'Totale';
-    box.querySelector('.centro-v').textContent = fmtEuro0(f ? f.v : tot);
-    box.querySelector('.centro-q').textContent = f ? q(f.v) : etiPrincipale();
-  };
-  const evidenzia = i => {
-    box.classList.toggle('attiva', i != null);
-    box.querySelectorAll('[data-i]').forEach(x => x.classList.toggle('on', x.dataset.i === String(i)));
-    centro(i != null ? fette[i] : null);
-  };
-  centro(null);
-  box.querySelectorAll('[data-canale]').forEach(x => {
-    x.onmouseenter = x.onfocus = () => evidenzia(Number(x.dataset.i));
-    x.onmouseleave = x.onblur = () => evidenzia(null);
-    x.onclick = () => {
-      an.f.canali = new Set([x.dataset.canale]);
+  const v = (rr, n) => Math.max(0, valoreOrdine(rr?.find(r => r.nome === n) || TOT_ZERO()));
+  const nomi = [...new Set([...righe, ...(righePrima || [])].map(r => r.nome))]
+    .filter(n => v(righe, n) > 0 || v(righePrima, n) > 0).sort((x, y) => v(righe, y) - v(righe, x));
+  if (!nomi.length) { box.innerHTML = '<p class="nota">Nessun dato per i canali.</p>'; return; }
+  const voci = nomi.map(n => [n, n, COLORE_CANALE[n] || 'var(--muted)']);
+  const ora = nomi.map(n => v(righe, n)), prec = righePrima ? nomi.map(n => v(righePrima, n)) : null;
+  const totOra = ora.reduce((a, b) => a + b, 0), totPrec = prec ? prec.reduce((a, b) => a + b, 0) : 0;
+  const [annoOra, annoPrec] = anniConfronto(date);
+  const estremi = d => d?.length ? (d.length === 1 ? fmtGiorno(d[0]) : `${fmtGiorno(d[0])} – ${fmtGiorno(d[d.length - 1])}`) : '';
+  const q = (x, t) => t ? (x / t * 100).toLocaleString('it-IT', { maximumFractionDigits: 1 }) + '%' : '—';
+  box.innerHTML = `<div class="canali-leg">${voci.map(([, nome, c]) => `<span><i style="background:${c}"></i>${esc(nome)}</span>`).join('')}
+      <span>· quota su: ${esc(etiPrincipale().toLowerCase())}</span></div>
+    <div class="compo">${barraComposizione(ora, totOra, annoOra, estremi(date), totPrec ? variazione(totOra, totPrec) : '', voci)}
+      ${righePrima ? barraComposizione(prec, totPrec, annoPrec, totPrec ? estremi(prima) : 'nessun dato', '', voci) : ''}</div>
+    <div class="tooltip hidden"></div>`;
+  const compo = box.querySelector('.compo'), tip = box.querySelector('.tooltip');
+  const scelti = an.f.canali?.size === 1 ? an.f.canali : null;
+  compo.classList.toggle('filtrato', !!scelti);
+  compo.querySelectorAll('.seg').forEach(s => {
+    const i = Number(s.dataset.i), nome = nomi[i];
+    s.classList.toggle('scelto', !!scelti?.has(nome));
+    s.onpointermove = ev => {
+      compo.classList.add('evid');
+      compo.querySelectorAll('.seg').forEach(x => x.classList.toggle('on', x.dataset.i === s.dataset.i));
+      tip.innerHTML = `<div class="tt-riga" style="margin-bottom:4px;"><i style="background:${voci[i][2]}"></i><b>${esc(nome)}</b> · ${esc(etiPrincipale().toLowerCase())}</div>
+        <div>${esc(annoOra)}: <b>${fmtEuro(ora[i])}</b> (${q(ora[i], totOra)})</div>
+        ${prec ? `<div>${esc(annoPrec)}: <b>${totPrec ? fmtEuro(prec[i]) : '—'}</b>${totPrec ? ` (${q(prec[i], totPrec)})` : ''}</div>
+        <div>Variazione: ${variazione(ora[i], prec[i]) || '—'}</div>` : ''}`;
+      tip.classList.remove('hidden');
+      const bb = box.getBoundingClientRect(), tw = tip.offsetWidth;
+      tip.style.left = Math.min(Math.max(0, ev.clientX - bb.left + 14), bb.width - tw) + 'px';
+      tip.style.top = Math.max(0, ev.clientY - bb.top + 14) + 'px';
+    };
+    s.onpointerleave = () => { tip.classList.add('hidden'); compo.classList.remove('evid'); compo.querySelectorAll('.seg').forEach(x => x.classList.remove('on')); };
+    s.onclick = () => {
+      an.f.canali = new Set([nome]);
       LIVELLI.slice(1).forEach(l => an.f[l.k] = null);
       an.livello = 'categoria';
       aggiornaAnalisi();
@@ -1612,7 +1615,7 @@ function disegnaClassifica(id, righe, op){
         ${anniTab ? cellaAnni(anniTab) : ''}
         ${colonne.map(l => `<td class="num ${l === princ ? 'princ' : 'sec'}${vend.has(l) ? ' vend' : ''}">${cellaValore(r, l, vs)}</td>`).join('')}
         ${extra.map(c => `<td class="num ${c.cls || ''}">${c.html(r)}</td>`).join('')}
-        <td class="qt"><div class="qt-b"><span><i style="width:${Math.max(0, x) / max * 100}%"></i></span>${q.toLocaleString('it-IT', { maximumFractionDigits: q < 10 ? 1 : 0 })}%</div></td></tr>`;
+        <td class="qt">${pillolaQuota(q, den ? Math.max(0, max) / den * 100 : 0)}</td></tr>`;
     }).join('')}
   </table></div>${op.piede || ''}`;
   // Clic sul nome della colonna: ordina per valore; su "var. %": per variazione
