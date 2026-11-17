@@ -253,6 +253,13 @@ button.piu:hover,button.piu[aria-expanded="true"]{background:var(--card-2);}
 .classifica td:nth-child(2){min-width:220px;}
 .classifica .nm{font-weight:600;line-height:1.25;}
 .classifica .st{font-size:11px;color:var(--muted);margin-top:2px;font-weight:400;}
+/* Copertina accanto al titolo; senza copertina il riquadro PDE "coming soon" (sempre bianco, come il logo) */
+.nm-cop{display:flex;align-items:center;gap:10px;}
+.cop{width:38px;height:56px;flex:0 0 38px;border-radius:3px;object-fit:cover;background:var(--border);box-shadow:0 1px 3px rgba(0,0,0,.2);}
+.cop-cs{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:#fff;border:1px solid #d6e0f2;box-sizing:border-box;}
+.cop-cs img{width:20px;height:20px;}
+.cop-cs b{font-size:9px;line-height:1;font-weight:800;letter-spacing:.5px;color:#0a2a6b;}
+.cop-cs i{font-style:normal;font-size:5.5px;line-height:1.15;font-weight:700;letter-spacing:.3px;text-align:center;color:#fff;background:#1d5fd6;border-radius:2px;padding:1px 3px;}
 .classifica td.princ{font-weight:700;white-space:nowrap;}
 .classifica td.qt{width:1%;text-align:right;white-space:nowrap;}
 /* Quota: pastiglia dal verde chiaro (peso piccolo) al verde scuro (peso maggiore) */
@@ -1547,11 +1554,38 @@ function disegnaTitoli(righe, totale, vuoto, cf = {}){
   disegnaClassifica('a-titoli', righe, {
     confronto: cf.confronto, annoPrec: cf.annoPrec, chiaveConfronto: t => t.ean, confrontoParziale: cf.parziale,
     titolo: 'Titolo', nome: t => t.titolo, sotto: t => [t.ean, t.editore, t.collana, fmtEuro(t.prezzo)].filter(Boolean).join(' · '),
-    attr: t => `data-ean="${esc(t.ean)}" data-titolo="${esc(t.titolo)}"`, totale, vuoto,
+    attr: t => `data-ean="${esc(t.ean)}" data-titolo="${esc(t.titolo)}"`, totale, vuoto, immagine: t => htmlCopertina(t.ean),
     extra: colonneGfk(t => an.gfk?.perEan.get(t.ean)),
     clic: tr => { an.ean = tr.dataset.ean; an.titoloEan = tr.dataset.titolo; aggiornaAnalisi(); window.scrollTo({ top: 0, behavior: 'smooth' }); },
   });
 }
+/* Copertine dei titoli: Feltrinelli, poi Messaggerie (IBS, Mondadori e OpenLibrary non rispondono più, prova del 17/11).
+   Per un EAN che non conoscono i due siti non danno errore ma un segnaposto: Feltrinelli quadrato (200×200),
+   Messaggerie 200×260. Quelli si scartano e si passa alla fonte dopo; senza copertina, quella PDE "coming soon".
+   COP_TROVATA ricorda per EAN la fonte buona (-1 = nessuna), così ridisegnando la tabella non si riprova tutto. */
+const COP_FONTI = [
+  { url: e => `https://www.lafeltrinelli.it/images/${e}_0_0_200_0_75.jpg`, buona: (w, h) => h > w },
+  { url: e => `https://img.messaggerielibri.it/images/${e}_0_0_260_0.png`, buona: (w, h) => h > w && !(w === 200 && h === 260) },
+];
+const COP_TROVATA = new Map();
+const COP_VUOTA = '<span class="cop cop-cs" aria-label="Copertina non disponibile"><img src="logo/pde-analisi-icona.png" alt=""><b>PDE</b><i>COMING<br>SOON</i></span>';
+function htmlCopertina(ean){
+  const f = COP_TROVATA.get(ean) ?? 0;
+  if (!ean || f < 0) return COP_VUOTA;
+  return `<img class="cop" loading="lazy" alt="" data-ean="${esc(ean)}" data-f="${f}" src="${esc(COP_FONTI[f].url(ean))}" onload="copOk(this)" onerror="copNo(this)">`;
+}
+function copOk(img){
+  const f = Number(img.dataset.f), w = img.naturalWidth, h = img.naturalHeight;
+  if (w < 50 || !COP_FONTI[f].buona(w, h)) return copNo(img);
+  COP_TROVATA.set(img.dataset.ean, f);
+}
+function copNo(img){
+  const f = Number(img.dataset.f) + 1;
+  if (f < COP_FONTI.length) { img.dataset.f = f; img.src = COP_FONTI[f].url(img.dataset.ean); return; }
+  COP_TROVATA.set(img.dataset.ean, -1);
+  img.outerHTML = COP_VUOTA;
+}
+
 // Classifica Titoli ristretta alle novità senza lancio (righe già calcolate per Lanci e rifornimenti)
 function mostraSenzaYba3(){
   document.querySelector('#a-tipi-senza')?.classList.add('scelto');
@@ -1611,7 +1645,7 @@ function disegnaClassifica(id, righe, op){
       const q = den ? Math.max(0, x) / den * 100 : 0;
       return `<tr class="cliccabile" ${op.attr(r)} data-cerca="${esc((n + ' ' + st).toLowerCase())}">
         <td class="rk">${i + 1}</td>
-        <td><div class="nm">${esc(n)}</div>${st ? `<div class="st">${esc(st)}</div>` : ''}</td>
+        <td>${op.immagine ? `<div class="nm-cop">${op.immagine(r)}<div>` : ''}<div class="nm">${esc(n)}</div>${st ? `<div class="st">${esc(st)}</div>` : ''}${op.immagine ? '</div></div>' : ''}</td>
         ${anniTab ? cellaAnni(anniTab) : ''}
         ${colonne.map(l => `<td class="num ${l === princ ? 'princ' : 'sec'}${vend.has(l) ? ' vend' : ''}">${cellaValore(r, l, vs)}</td>`).join('')}
         ${extra.map(c => `<td class="num ${c.cls || ''}">${c.html(r)}</td>`).join('')}
