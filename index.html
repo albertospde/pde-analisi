@@ -2201,11 +2201,12 @@ async function preparaParquet(date){
       const r = await rpcDb('msg_esclusioni_regole', {}).catch(e => { console.warn('Esclusioni:', e); return null; }) || {};
       const tsv = (testa, righe) => testa + '\n' + righe.map(x => x.map(v => String(v ?? '').replace(/[\t\n\r]/g, ' ')).join('\t')).join('\n');
       await PQ.db.registerFileText('escl_ing.tsv', tsv('editore\tdal', (r.ingressi || []).map(x => [x.editore, x.dal])));
-      await PQ.db.registerFileText('escl_cli.tsv', tsv('editore\tcodice_cliente', (r.clienti || []).map(x => [x.editore, x.codice_cliente])));
+      await PQ.db.registerFileText('escl_cli.tsv', tsv('editore\tcodice_cliente\tdal\tal', (r.clienti || []).map(x => [x.editore, x.codice_cliente, x.dal, x.al])));
       await con.query(`create or replace table escl_ing as select * from read_csv('escl_ing.tsv', delim='\t', header=true, quote='', escape='',
         columns={'editore':'VARCHAR','dal':'DATE'})`);
+      // dal / al vuoti = regola senza limite di data (es. Alpha Test su Giunti e Mondadori solo nel 2025)
       await con.query(`create or replace table escl_cli as select * from read_csv('escl_cli.tsv', delim='\t', header=true, quote='', escape='',
-        columns={'editore':'VARCHAR','codice_cliente':'VARCHAR'})`);
+        nullstr='', columns={'editore':'VARCHAR','codice_cliente':'VARCHAR','dal':'DATE','al':'DATE'})`);
     })();
   }
   await PQ.regole;
@@ -2236,7 +2237,8 @@ async function analisiParquet(nome, a){
     filtri.push(sqlIn('m.ean', cerca));
   }
   filtri.push(`not exists (select 1 from escl_ing i where i.editore = t.editore and m.data < i.dal)`,
-    `not exists (select 1 from escl_cli x where x.editore = t.editore and x.codice_cliente = m.codice_cliente)`);
+    `not exists (select 1 from escl_cli x where x.editore = t.editore and x.codice_cliente = m.codice_cliente
+      and (x.dal is null or m.data >= x.dal) and (x.al is null or m.data <= x.al))`);
   const m = `(select m.*, t.editore, t.codice_editore, t.data_uscita from ${sorgente} m left join titoli t using (ean) where ${filtri.join(' and ')})`;
   const righe = async sql => (await con.query(sql)).toArray().map(r => ({ ...r }));
 

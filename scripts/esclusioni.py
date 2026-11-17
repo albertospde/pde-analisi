@@ -1,7 +1,7 @@
 """Esclusioni dello storico in Parquet (docs/sql/2026-11-13-esclusioni.sql).
 
 Per i file che hanno i movimenti solo in Parquet il database non può applicare da solo le regole di esclusione
-(editori New Entry prima dell'ingresso, clienti Amazon per alcuni editori). Questo script:
+(editori New Entry prima dell'ingresso, clienti di un canale per alcuni editori, anche solo in un periodo). Questo script:
   1. chiede al database le regole, già tradotte in EAN e codici cliente, e i file solo in Parquet con i totali
      delle esclusioni oggi applicate (edge function msg-import-automatico, azione "esclusioni-piano");
   2. per ogni file scarica il Parquet e trova le righe escluse dalle regole;
@@ -41,8 +41,10 @@ def righe_escluse(tab, ingressi, canali):
         if dal is not None and data[i].isoformat() < dal:
             fuori.append(i)
             continue
-        for ean_c, clienti_c in canali:
-            if ean[i] in ean_c and cliente[i] in clienti_c:
+        for ean_c, clienti_c, dal_c, al_c in canali:
+            giorno = data[i].isoformat()
+            if (ean[i] in ean_c and cliente[i] in clienti_c
+                    and (dal_c is None or giorno >= dal_c) and (al_c is None or giorno <= al_c)):
                 fuori.append(i)
                 break
     if not fuori:
@@ -55,11 +57,12 @@ def righe_escluse(tab, ingressi, canali):
 def principale(solo):
     piano = job("esclusioni-piano")
     ingressi = {e: str(d) for e, d in piano["ingressi"]}
-    canali = [(set(c["ean"] or []), set(c["clienti"] or [])) for c in piano["clienti"]]
+    # Un gruppo per canale e periodo (dal / al: date ISO, None = senza limite; docs/sql/2026-11-17-esclusioni-periodo.sql)
+    canali = [(set(c["ean"] or []), set(c["clienti"] or []), c.get("dal"), c.get("al")) for c in piano["clienti"]]
     # Un Parquet si legge solo se contiene un EAN interessato dalle regole
-    ean_regole = set(ingressi).union(*(e for e, _ in canali))
+    ean_regole = set(ingressi).union(*(c[0] for c in canali))
     file = [f for f in piano["file"] if not solo or f["file"] in solo]
-    print(f"Regole: {len(ingressi)} titoli di editori nuovi, {sum(len(e) for e, _ in canali)} titoli con clienti esclusi · "
+    print(f"Regole: {len(ingressi)} titoli di editori nuovi, {sum(len(c[0]) for c in canali)} titoli con clienti esclusi · "
           f"{len(file)} file solo in Parquet", flush=True)
     cambiati = errori = 0
     for f in file:
