@@ -46,16 +46,41 @@ a{color:var(--blu);}
 .muted{color:var(--muted);}
 .hidden{display:none !important;}
 
-/* ── Header ── */
-header{background:var(--header);border-bottom:1px solid var(--border);padding:10px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:20;}
+/* ── Barra unica in alto (nov 2026, come PDE Hub): sezioni a sinistra, menu utente a destra ── */
+.topbar{height:50px;background:rgba(7,11,34,.94);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);padding:0 16px 0 20px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:20;}
+html[data-theme="light"] .topbar{background:rgba(255,255,255,.94);}
+.topbar-right{margin-left:auto;display:flex;align-items:center;gap:12px;flex-shrink:0;}
 /* I colori del logo PDE sono pensati per il bianco: sempre dentro un riquadro bianco */
 .logo-box{background:#fff;border-radius:8px;padding:5px 12px;display:inline-flex;align-items:center;}
-html[data-theme="light"] header .logo-box{padding-left:0;}
-.hdr-right{margin-left:auto;display:flex;align-items:center;gap:10px;}
 .theme-switch{display:flex;gap:2px;background:var(--card-2);border:1px solid var(--border);border-radius:6px;padding:2px;}
-.theme-opt{background:transparent;border:none;border-radius:4px;color:var(--muted);font-size:12px;padding:4px 10px;cursor:pointer;}
+.theme-opt{background:transparent;border:none;border-radius:4px;color:var(--muted);font-size:12px;padding:5px 10px;cursor:pointer;}
 html:not([data-theme="light"]) .theme-opt[data-set="dark"],html[data-theme="light"] .theme-opt[data-set="light"]{color:var(--text);background:var(--card);}
-.user-chip{font-size:12px;color:var(--muted);}
+/* menu utente */
+.user-menu-wrap{position:relative;}
+.user-btn{display:flex;align-items:center;gap:6px;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:6px 12px;font-size:13px;cursor:pointer;transition:color .2s,border-color .2s;}
+.user-btn:hover,.user-btn[aria-expanded="true"]{color:var(--text);border-color:var(--blu);}
+.user-btn svg{width:14px;height:14px;fill:currentColor;}
+.dropdown{position:absolute;top:calc(100% + 8px);right:0;min-width:260px;background:rgba(13,19,52,.97);border:1px solid var(--border);border-radius:12px;box-shadow:0 16px 40px rgba(0,0,0,.6);overflow:hidden;display:none;z-index:50;}
+html[data-theme="light"] .dropdown{background:#fff;box-shadow:0 16px 40px rgba(26,45,107,.18);}
+.dropdown.open{display:block;animation:dropIn .2s ease;}
+@keyframes dropIn{from{transform:translateY(-6px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+.dropdown-email{padding:12px 16px;font-size:12px;color:var(--muted);border-bottom:1px solid var(--border);word-break:break-all;}
+.dd-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border);}
+.dd-label{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;}
+.dropdown-item{display:flex;align-items:center;gap:10px;width:100%;padding:11px 16px;font-size:13px;color:var(--text);background:none;border:none;text-align:left;text-decoration:none;cursor:pointer;transition:background .15s;}
+.dropdown-item:hover{background:rgba(107,127,232,.1);}
+.dropdown-item.danger{color:var(--ko);}
+.dropdown-item.danger:hover{background:rgba(224,108,108,.08);}
+.dropdown-item svg{width:14px;height:14px;fill:currentColor;flex-shrink:0;}
+/* benvenuto con il logo */
+.home-welcome{display:flex;flex-direction:column;align-items:center;gap:6px;max-width:360px;margin:0 auto 18px;background:#fff;border:1px solid var(--border);border-radius:16px;padding:14px 20px 16px;}
+.home-welcome .hw-txt{font-family:Montserrat,'DM Sans',sans-serif;font-size:13px;font-weight:500;letter-spacing:.18em;text-transform:uppercase;color:#1f6fe5;}
+.home-welcome .pde-logo{font-size:26px;}
+/* cambio password */
+.pwd-dlg{margin:auto;background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:14px;padding:24px;width:380px;max-width:calc(100vw - 32px);box-shadow:var(--shadow);}
+.pwd-dlg::backdrop{background:rgba(0,0,0,.45);}
+.pwd-dlg h2{font-size:17px;margin-bottom:14px;}
+.pwd-dlg .azioni{justify-content:flex-end;}
 
 main{max-width:1320px;margin:0 auto;padding:22px 24px 60px;}
 .empty{text-align:center;color:var(--muted);padding:80px 10px;}
@@ -77,7 +102,7 @@ input:focus{outline:none;border-color:var(--blu);}
 .err{color:var(--ko);font-weight:600;font-size:13px;min-height:18px;}
 
 /* ── Navigazione e sezioni ── */
-nav{display:flex;gap:4px;margin-left:12px;}
+nav{display:flex;gap:4px;}
 .nav-btn{background:none;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;color:var(--muted);font-weight:500;}
 .nav-btn:hover{color:var(--text);background:var(--card-2);}
 .nav-btn.active{color:#fff;background:var(--blu);}
@@ -316,10 +341,17 @@ td.muto{color:var(--muted);}
 .login-logo{display:flex;justify-content:center;margin-bottom:22px;padding:14px;}
 
 @media (max-width:760px){
-  header{flex-wrap:wrap;padding:10px 16px;}
+  .topbar{padding:0 10px;gap:8px;}
+  nav{margin-left:0;min-width:0;overflow-x:auto;scrollbar-width:none;}
+  .nav-btn{padding:7px 10px;white-space:nowrap;}
+  #user-short{display:none;}
   main{padding:16px;}
-  .user-chip{display:none;}
+  .home-welcome .pde-logo{font-size:21px;}
 }
+</style>
+<script>/* Dentro il PDE Hub (iframe) il menu utente lo ha già la barra del Hub (stesso account, stesso tema) */try{if(window.self!==window.top)document.documentElement.classList.add('pde-in-hub')}catch(e){document.documentElement.classList.add('pde-in-hub')}</script>
+<style>
+.pde-in-hub .user-menu-wrap{display:none!important}
 </style>
 </head>
 <body>
@@ -335,27 +367,65 @@ td.muto{color:var(--muted);}
   </div>
 </div>
 
-<header>
-  <div class="logo-box"><div class="pde-logo" style="font-size:16px" role="img" aria-label="PDE Analisi"><div class="pl-text"><div class="pl-name"><b>PDE</b><span>ANALISI</span></div><div class="pl-tag"><i class="c0">RACCOGLI.</i><em>I</em><i class="c1">ANALIZZA.</i><em>I</em><i class="c2">DECIDI.</i></div></div><div class="pl-wing"></div></div></div>
+<!-- Una sola barra stretta (come PDE Hub): a sinistra le sezioni, a destra solo il menu utente
+     con dentro tema, ritorno al Hub ed Esci. Il logo resta nel benvenuto della vista Analisi e nel login. -->
+<header class="topbar">
   <nav>
     <button class="nav-btn active" data-view="analisi">Analisi</button>
     <!-- Collane: nascosta dal menu, raggiungibile da #collane -->
     <button class="nav-btn hidden" data-view="collane">Collane</button>
     <button class="nav-btn" data-view="sftp">SFTP Messaggerie</button>
   </nav>
-  <div class="hdr-right">
-    <div class="theme-switch" role="group" aria-label="Tema">
-      <button class="theme-opt" data-set="dark" onclick="setTheme('dark')">Scuro</button>
-      <button class="theme-opt" data-set="light" onclick="setTheme('light')">Chiaro</button>
+  <div class="topbar-right">
+    <div class="user-menu-wrap">
+      <button type="button" class="user-btn" id="user-btn" aria-haspopup="true" aria-expanded="false" aria-controls="dropdown">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/></svg>
+        <span id="user-short">Account</span>
+        <svg viewBox="0 0 24 24" aria-hidden="true" style="width:10px;height:10px"><path d="M7 10l5 5 5-5z"/></svg>
+      </button>
+      <div class="dropdown" id="dropdown">
+        <div class="dropdown-email" id="user-chip"></div>
+        <div class="dd-row"><span class="dd-label">Tema</span>
+          <div class="theme-switch" role="group" aria-label="Tema">
+            <button class="theme-opt" data-set="light" onclick="setTheme('light')">☀ Chiaro</button>
+            <button class="theme-opt" data-set="dark" onclick="setTheme('dark')">☾ Scuro</button>
+          </div>
+        </div>
+        <a class="dropdown-item" id="dd-hub" href="https://albertospde.github.io/pde-hub/">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+          Torna a PDE Hub
+        </a>
+        <button type="button" class="dropdown-item" id="pwd-apri">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM12 17c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
+          Cambia password
+        </button>
+        <button type="button" class="dropdown-item danger" id="logout-btn">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
+          Esci
+        </button>
+      </div>
     </div>
-    <span class="user-chip" id="user-chip"></span>
-    <button class="btn btn-sec btn-sm" id="logout-btn">Esci</button>
   </div>
 </header>
+
+<!-- Cambio password (stesso account del PDE Hub) -->
+<dialog class="pwd-dlg" id="pwd-dlg">
+  <form method="dialog" id="pwd-form">
+    <h2>Cambia password</h2>
+    <div class="field"><label for="pwd-1">Nuova password</label><input type="password" id="pwd-1" autocomplete="new-password" minlength="8" required></div>
+    <div class="field"><label for="pwd-2">Ripeti la nuova password</label><input type="password" id="pwd-2" autocomplete="new-password" minlength="8" required></div>
+    <div class="err" id="pwd-err"></div>
+    <div class="azioni"><button type="button" class="btn btn-sec" id="pwd-annulla">Annulla</button><button type="submit" class="btn btn-primary" id="pwd-salva">Salva</button></div>
+  </form>
+</dialog>
 
 <main>
   <!-- Schermata vuota: qui arriveranno le analisi sui dati Messaggerie -->
   <section id="view-analisi">
+    <!-- Benvenuto con il logo (PDE Analisi non ha una home: la vista Analisi è la pagina d'arrivo) -->
+    <div class="home-welcome"><span class="hw-txt">Benvenuto in</span>
+      <div class="pde-logo" role="img" aria-label="PDE Analisi — Raccogli. Analizza. Decidi."><div class="pl-text"><div class="pl-name"><b>PDE</b><span>ANALISI</span></div><div class="pl-tag"><i class="c0">RACCOGLI.</i><em>I</em><i class="c1">ANALIZZA.</i><em>I</em><i class="c2">DECIDI.</i></div></div><div class="pl-wing"></div></div>
+    </div>
     <!-- Filtri: barra con il riepilogo; il pannello si apre e si chiude. Le scelte nel pannello
          valgono solo con "Applica" (Annulla le scarta). -->
     <!-- Barra e pannello restano in vista scorrendo la pagina (sotto l'intestazione) -->
@@ -522,6 +592,9 @@ async function avvia(){
   }
   $('login').classList.add('hidden');
   $('user-chip').textContent = session.user.email;
+  // Nome breve nel pulsante: la parte prima della @ ("alberto.rossi" → "Alberto")
+  const breve = (session.user.email || '').split('@')[0].split(/[._-]/)[0];
+  if (breve) $('user-short').textContent = breve.charAt(0).toUpperCase() + breve.slice(1);
   mostraVista(['#sftp', '#collane'].includes(location.hash) ? location.hash.slice(1) : 'analisi');
 }
 
@@ -2413,6 +2486,35 @@ $('login-btn').onclick = async () => {
 $('login-pw').addEventListener('keydown', e => { if (e.key === 'Enter') $('login-btn').click(); });
 // Logout solo locale: non disconnette Hub e altre app PDE che condividono la sessione
 $('logout-btn').onclick = async () => { await sb.auth.signOut({ scope: 'local' }); location.reload(); };
+
+/* Menu utente: si apre col pulsante, si chiude cliccando fuori o con Esc */
+function menuUtente(apri){
+  $('dropdown').classList.toggle('open', apri);
+  $('user-btn').setAttribute('aria-expanded', String(apri));
+}
+$('user-btn').onclick = e => { e.stopPropagation(); menuUtente(!$('dropdown').classList.contains('open')); };
+document.addEventListener('click', e => { if (!e.target.closest('.user-menu-wrap')) menuUtente(false); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') menuUtente(false); });
+
+/* Cambio password (stesso account del PDE Hub) */
+$('pwd-apri').onclick = () => {
+  menuUtente(false);
+  $('pwd-form').reset(); $('pwd-err').textContent = '';
+  $('pwd-dlg').showModal();
+};
+$('pwd-annulla').onclick = () => $('pwd-dlg').close();
+$('pwd-form').onsubmit = async e => {
+  e.preventDefault();
+  const p1 = $('pwd-1').value, p2 = $('pwd-2').value;
+  if (p1.length < 8) { $('pwd-err').textContent = 'Almeno 8 caratteri.'; return; }
+  if (p1 !== p2) { $('pwd-err').textContent = 'Le due password non coincidono.'; return; }
+  $('pwd-salva').disabled = true;
+  const { error } = await sb.auth.updateUser({ password: p1 });
+  $('pwd-salva').disabled = false;
+  if (error) { $('pwd-err').textContent = 'Non salvata: ' + error.message; return; }
+  $('pwd-dlg').close();
+  alert('Password cambiata. Vale anche per PDE Hub e le altre app.');
+};
 
 avvia();
 </script>
